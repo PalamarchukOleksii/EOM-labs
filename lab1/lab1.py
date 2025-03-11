@@ -1,20 +1,18 @@
 import random
 import math
 
-P = 10
+P = 100
 
 fi_sel = 0.2
 fi_cross = 0.4
 fi_mut = 0.4
 
-lb_f4 = {"x": -10, "y": -10}
-ub_f4 = {"x": 10, "y": 10}
-
-param_list = ["x", "y"]
+lb_f4 = [-10, -10]
+ub_f4 = [-10, -10]
 
 d = 1
 
-gen_limit = 100
+gen_limit = 1000
 
 
 def f4(x, y):
@@ -25,12 +23,12 @@ def f4(x, y):
     )
 
 
-def generate_population(lower_bound, upper_bound, population_size, parameters_list):
+def generate_population(lower_bound, upper_bound, population_size):
     population = []
 
     for i in range(population_size):
         point = []
-        for d in parameters_list:
+        for d in range(len(lower_bound)):
             r_id = random.uniform(0, 1)
 
             coord_id = lower_bound[d] + r_id * (upper_bound[d] - lower_bound[d])
@@ -83,7 +81,7 @@ def crossover_population(population, d):
 def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
     mutated_point = []
 
-    for i in len(point):
+    for i in range(len(point)):
         mutation_value = random.gauss(0, sigma[i])
 
         new_value = point[i] + mutation_value
@@ -114,15 +112,12 @@ def run_experiment(
     mutation_fraction,
     lower_bound,
     upper_bound,
-    parameters_list,
     generation_limit,
     function,
     crossover_area_expansion,
 ):
-    population = generate_population(
-        lower_bound, upper_bound, population_size, parameters_list
-    )
-    sigma = [(upper_bound[key] - lower_bound[key]) / 6 for key in lower_bound]
+    population = generate_population(lower_bound, upper_bound, population_size)
+    sigma = [(upper_bound[i] - lower_bound[i]) / 6 for i in range(len(lower_bound))]
 
     for i in range(generation_limit):
         sorted_population = sort_population(function, population)
@@ -148,9 +143,7 @@ def run_experiment(
     return population
 
 
-result = run_experiment(
-    P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, param_list, gen_limit, f4, d
-)
+result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
 
 for point in result:
     print(point)
