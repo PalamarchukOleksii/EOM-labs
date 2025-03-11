@@ -80,12 +80,11 @@ def crossover_population(population, d):
     return new_population
 
 
-def mutation_in_natural_coding(point, lower_bound, upper_bound):
+def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
     mutated_point = []
-    sigma = (upper_bound - lower_bound) / 6
 
     for i in len(point):
-        mutation_value = random.gauss(0, sigma)
+        mutation_value = random.gauss(0, sigma[i])
 
         new_value = point[i] + mutation_value
         new_value = max(min(new_value, upper_bound[i]), lower_bound[i])
@@ -95,47 +94,63 @@ def mutation_in_natural_coding(point, lower_bound, upper_bound):
     return mutated_point
 
 
-def mutate_population(population, lower_bound, upper_bound):
+def mutate_population(population, lower_bound, upper_bound, sigma):
     mutate_population = []
 
     for point in population:
-        mutated_point = mutation_in_natural_coding(point, upper_bound, lower_bound)
+        mutated_point = mutation_in_natural_coding(
+            point, upper_bound, lower_bound, sigma
+        )
 
         mutate_population.append(mutated_point)
 
     return mutate_population
 
 
-population = generate_population(lb_f4, ub_f4, P, param_list)
+def run_experiment(
+    population_size,
+    elite_fraction,
+    crossover_fraction,
+    mutation_fraction,
+    lower_bound,
+    upper_bound,
+    parameters_list,
+    generation_limit,
+    function,
+    crossover_area_expansion,
+):
+    population = generate_population(
+        lower_bound, upper_bound, population_size, parameters_list
+    )
+    sigma = [(upper_bound[key] - lower_bound[key]) / 6 for key in lower_bound]
 
-sorted_population = sort_population(f4, population)
+    for i in range(generation_limit):
+        sorted_population = sort_population(function, population)
 
-elite_count = int(len(sorted_population) * fi_sel)
-crossover_count = int(len(sorted_population) * fi_cross)
+        elite_count = int(len(sorted_population) * elite_fraction)
+        crossover_count = int(len(sorted_population) * crossover_fraction)
 
-elite_points = sorted_population[0:elite_count]
-crossover_points = sorted_population[elite_count : elite_count + crossover_count]
-mutation_points = sorted_population[elite_count + crossover_count :]
+        elite_points = sorted_population[0:elite_count]
+        crossover_points = sorted_population[
+            elite_count : elite_count + crossover_count
+        ]
+        mutation_points = sorted_population[elite_count + crossover_count :]
 
-crossovered_points = crossover_population(crossover_points, d)
+        crossovered_points = crossover_population(
+            crossover_points, crossover_area_expansion
+        )
+        mutated_points = mutate_population(
+            mutation_points, lower_bound, upper_bound, sigma
+        )
+
+        population = elite_points + crossovered_points + mutated_points
+
+    return population
 
 
-print("All points in sorted_population:")
-for point in sorted_population:
-    print(point)
+result = run_experiment(
+    P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, param_list, gen_limit, f4, d
+)
 
-print("\nElite points:")
-for point in elite_points:
-    print(point)
-
-print("\nCrossover points:")
-for point in crossover_points:
-    print(point)
-
-print("\nCrossovered points:")
-for point in crossovered_points:
-    print(point)
-
-print("\nMutation points:")
-for point in mutation_points:
+for point in result:
     print(point)
