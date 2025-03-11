@@ -14,6 +14,8 @@ param_list = ["x", "y"]
 
 d = 1
 
+gen_limit = 100
+
 
 def f4(x, y):
     return (
@@ -54,7 +56,7 @@ def sort_population(function, population):
     return sorted_population
 
 
-def uniform_crossover(parent_1, parent_2, d):
+def uniform_crossover_in_natural_coding(parent_1, parent_2, d):
     beta_1 = random.uniform(-d, 1 + d)
     beta_2 = random.uniform(-d, 1 + d)
 
@@ -71,11 +73,37 @@ def crossover_population(population, d):
         parent1 = random.choice(population)
         parent2 = random.choice(population)
 
-        child = uniform_crossover(parent1, parent2, d)
+        child = uniform_crossover_in_natural_coding(parent1, parent2, d)
 
         new_population.append(child)
 
     return new_population
+
+
+def mutation_in_natural_coding(point, lower_bound, upper_bound):
+    mutated_point = []
+    sigma = (upper_bound - lower_bound) / 6
+
+    for i in len(point):
+        mutation_value = random.gauss(0, sigma)
+
+        new_value = point[i] + mutation_value
+        new_value = max(min(new_value, upper_bound[i]), lower_bound[i])
+
+        mutated_point.append(new_value)
+
+    return mutated_point
+
+
+def mutate_population(population, lower_bound, upper_bound):
+    mutate_population = []
+
+    for point in population:
+        mutated_point = mutation_in_natural_coding(point, upper_bound, lower_bound)
+
+        mutate_population.append(mutated_point)
+
+    return mutate_population
 
 
 population = generate_population(lb_f4, ub_f4, P, param_list)
