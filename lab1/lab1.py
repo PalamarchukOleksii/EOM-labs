@@ -12,6 +12,8 @@ ub_f4 = {"x": 10, "y": 10}
 
 param_list = ["x", "y"]
 
+d = 1
+
 
 def f4(x, y):
     return (
@@ -52,9 +54,60 @@ def sort_population(function, population):
     return sorted_population
 
 
+def uniform_crossover(parent_1, parent_2, d):
+    beta_1 = random.uniform(-d, 1 + d)
+    beta_2 = random.uniform(-d, 1 + d)
+
+    new_point_x = parent_1[0] + beta_1 * (parent_2[0] - parent_1[0])
+    new_point_y = parent_1[1] + beta_2 * (parent_2[1] - parent_1[1])
+
+    return [new_point_x, new_point_y]
+
+
+def crossover_population(population, d):
+    new_population = []
+
+    while len(new_population) < len(population):
+        parent1 = random.choice(population)
+        parent2 = random.choice(population)
+
+        child = uniform_crossover(parent1, parent2, d)
+
+        new_population.append(child)
+
+    return new_population
+
+
 population = generate_population(lb_f4, ub_f4, P, param_list)
 
 sorted_population = sort_population(f4, population)
 
-for el in sorted_population:
-    print(el)
+elite_count = int(len(sorted_population) * fi_sel)
+crossover_count = int(len(sorted_population) * fi_cross)
+
+elite_points = sorted_population[0:elite_count]
+crossover_points = sorted_population[elite_count : elite_count + crossover_count]
+mutation_points = sorted_population[elite_count + crossover_count :]
+
+crossovered_points = crossover_population(crossover_points, d)
+
+
+print("All points in sorted_population:")
+for point in sorted_population:
+    print(point)
+
+print("\nElite points:")
+for point in elite_points:
+    print(point)
+
+print("\nCrossover points:")
+for point in crossover_points:
+    print(point)
+
+print("\nCrossovered points:")
+for point in crossovered_points:
+    print(point)
+
+print("\nMutation points:")
+for point in mutation_points:
+    print(point)
