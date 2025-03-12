@@ -3,16 +3,16 @@ import math
 
 P = 100
 
-fi_sel = 0.2
+fi_sel = 0.3
 fi_cross = 0.4
-fi_mut = 0.4
+fi_mut = 0.3
 
 lb_f4 = [-10, -10]
-ub_f4 = [-10, -10]
+ub_f4 = [10, 10]
 
-d = 1
+d = 0.5
 
-gen_limit = 1000
+gen_limit = 500
 
 
 def f4(x, y):
@@ -117,9 +117,12 @@ def run_experiment(
     crossover_area_expansion,
 ):
     population = generate_population(lower_bound, upper_bound, population_size)
-    sigma = [(upper_bound[i] - lower_bound[i]) / 6 for i in range(len(lower_bound))]
+    sigma = [(upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))]
 
     for i in range(generation_limit):
+        if i % 10 == 0:
+            print(f"Generation {i}...")
+
         sorted_population = sort_population(function, population)
 
         elite_count = int(len(sorted_population) * elite_fraction)
@@ -138,12 +141,14 @@ def run_experiment(
             mutation_points, lower_bound, upper_bound, sigma
         )
 
+        population = []
         population = elite_points + crossovered_points + mutated_points
 
+    population = sort_population(function, population)
     return population
 
 
 result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
 
-for point in result:
-    print(point)
+for i in range(0, 10):
+    print(result[i])
