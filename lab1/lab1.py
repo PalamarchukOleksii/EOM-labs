@@ -41,17 +41,11 @@ def generate_population(lower_bound, upper_bound, population_size):
 
 
 def sort_population(function, population):
-    population_values = []
-    for point in population:
-        population_values.append((point, function(point[0], point[1])))
+    population_values = [(point, function(point[0], point[1])) for point in population]
 
     population_values.sort(key=lambda x: x[1])
 
-    sorted_population = []
-    for value in population_values:
-        sorted_population.append(value[0])
-
-    return sorted_population
+    return [value[0] for value in population_values]
 
 
 def uniform_crossover_in_natural_coding(parent_1, parent_2, d):
@@ -68,8 +62,7 @@ def crossover_population(population, d):
     new_population = []
 
     while len(new_population) < len(population):
-        parent1 = random.choice(population)
-        parent2 = random.choice(population)
+        parent1, parent2 = random.sample(population, 2)
 
         child = uniform_crossover_in_natural_coding(parent1, parent2, d)
 
@@ -93,16 +86,10 @@ def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
 
 
 def mutate_population(population, lower_bound, upper_bound, sigma):
-    mutate_population = []
-
-    for point in population:
-        mutated_point = mutation_in_natural_coding(
-            point, upper_bound, lower_bound, sigma
-        )
-
-        mutate_population.append(mutated_point)
-
-    return mutate_population
+    return [
+        mutation_in_natural_coding(point, lower_bound, upper_bound, sigma)
+        for point in population
+    ]
 
 
 def run_experiment(
@@ -128,7 +115,7 @@ def run_experiment(
         elite_count = int(len(sorted_population) * elite_fraction)
         crossover_count = int(len(sorted_population) * crossover_fraction)
 
-        elite_points = sorted_population[0:elite_count]
+        elite_points = sorted_population[:elite_count]
         crossover_points = sorted_population[
             elite_count : elite_count + crossover_count
         ]
@@ -141,7 +128,6 @@ def run_experiment(
             mutation_points, lower_bound, upper_bound, sigma
         )
 
-        population = []
         population = elite_points + crossovered_points + mutated_points
 
     population = sort_population(function, population)
