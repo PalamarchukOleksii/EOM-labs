@@ -1,18 +1,18 @@
 import random
 import math
 
-P = 100
+P = 20
 
-fi_sel = 0.3
-fi_cross = 0.4
-fi_mut = 0.3
+fi_sel = 0.2
+fi_cross = 0.7
+fi_mut = 0.1
 
 lb_f4 = [-10, -10]
 ub_f4 = [10, 10]
 
 d = 0.5
 
-gen_limit = 500
+gen_limit = 100
 
 
 def f4(x, y):
@@ -48,6 +48,18 @@ def sort_population(function, population):
     return [value[0] for value in population_values]
 
 
+def rank_select(population):
+    p = len(population)
+    ranks = [i + 1 for i in range(p)]
+
+    probabilities_sum = sum(p - rank + 1 for rank in ranks)
+    probabilities = [(p - rank + 1) / probabilities_sum for rank in ranks]
+
+    selected_index = random.choices(range(p), probabilities)[0]
+
+    return population[selected_index]
+
+
 def uniform_crossover_in_natural_coding(parent_1, parent_2, d):
     beta_1 = random.uniform(-d, 1 + d)
     beta_2 = random.uniform(-d, 1 + d)
@@ -62,7 +74,10 @@ def crossover_population(population, d):
     new_population = []
 
     while len(new_population) < len(population):
-        parent1, parent2 = random.sample(population, 2)
+        parent1 = rank_select(population)
+        parent2 = rank_select(population)
+        while parent1 == parent2:
+            parent2 = rank_select(population)
 
         child = uniform_crossover_in_natural_coding(parent1, parent2, d)
 
@@ -104,13 +119,13 @@ def run_experiment(
     crossover_area_expansion,
 ):
     population = generate_population(lower_bound, upper_bound, population_size)
+    sorted_population = sort_population(function, population)
+
     sigma = [(upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))]
 
     for i in range(generation_limit):
         if i % 10 == 0:
             print(f"Generation {i}...")
-
-        sorted_population = sort_population(function, population)
 
         elite_count = int(len(sorted_population) * elite_fraction)
         crossover_count = int(len(sorted_population) * crossover_fraction)
@@ -129,9 +144,9 @@ def run_experiment(
         )
 
         population = elite_points + crossovered_points + mutated_points
+        sorted_population = sort_population(function, population)
 
-    population = sort_population(function, population)
-    return population
+    return sorted_population
 
 
 result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
