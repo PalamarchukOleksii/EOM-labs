@@ -1,7 +1,7 @@
 import random
 import math
 
-P = 20
+P = 50
 
 fi_sel = 0.2
 fi_cross = 0.7
@@ -60,17 +60,22 @@ def rank_select(population):
     return population[selected_index]
 
 
-def uniform_crossover_in_natural_coding(parent_1, parent_2, d):
-    beta_1 = random.uniform(-d, 1 + d)
-    beta_2 = random.uniform(-d, 1 + d)
+def uniform_crossover_in_natural_coding(
+    parent_1, parent_2, d, lower_bound, upper_bound
+):
+    new_point = []
+    for i in range(len(parent_1)):
+        beta = random.uniform(-d, 1 + d)
 
-    new_point_x = parent_1[0] + beta_1 * (parent_2[0] - parent_1[0])
-    new_point_y = parent_1[1] + beta_2 * (parent_2[1] - parent_1[1])
+        new_point_coord = parent_1[i] + beta * (parent_2[i] - parent_1[i])
+        new_point_coord = max(min(new_point_coord, upper_bound[i]), lower_bound[i])
 
-    return [new_point_x, new_point_y]
+        new_point.append(new_point_coord)
+
+    return new_point
 
 
-def crossover_population(population, d):
+def crossover_population(population, d, lower_bound, upper_bound):
     new_population = []
 
     while len(new_population) < len(population):
@@ -79,7 +84,9 @@ def crossover_population(population, d):
         while parent1 == parent2:
             parent2 = rank_select(population)
 
-        child = uniform_crossover_in_natural_coding(parent1, parent2, d)
+        child = uniform_crossover_in_natural_coding(
+            parent1, parent2, d, lower_bound, upper_bound
+        )
 
         new_population.append(child)
 
@@ -137,7 +144,7 @@ def run_experiment(
         mutation_points = sorted_population[elite_count + crossover_count :]
 
         crossovered_points = crossover_population(
-            crossover_points, crossover_area_expansion
+            crossover_points, crossover_area_expansion, lower_bound, upper_bound
         )
         mutated_points = mutate_population(
             mutation_points, lower_bound, upper_bound, sigma
@@ -151,5 +158,5 @@ def run_experiment(
 
 result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
 
-for i in range(0, 10):
-    print(result[i])
+for point in result:
+    print(point)
