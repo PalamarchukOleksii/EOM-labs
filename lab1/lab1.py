@@ -23,8 +23,8 @@ def f4(x, y):
     )
 
 
-lb_f12 = [0, math.pi]
-ub_f12 = [0, math.pi]
+lb_f12 = [0, 0]
+ub_f12 = [math.pi, math.pi]
 
 
 def f12(x, y):
@@ -166,7 +166,10 @@ def run_experiment(
     return sorted_population
 
 
-result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d)
+if __name__ == "__main__":
+    result = run_experiment(
+        P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d
+    )
 
-for point in result:
-    print(point)
+    for point in result:
+        print(point)
