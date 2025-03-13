@@ -1,7 +1,7 @@
 import random
 import math
 
-P = 50
+P = 10
 
 fi_sel = 0.2
 fi_cross = 0.7
@@ -21,6 +21,16 @@ def f4(x, y):
         + ((x - 1) ** 2 * (1 + (math.sin(3 * math.pi * y)) ** 2))
         + ((y - 1) ** 2 * (1 + (math.sin(2 * math.pi * y)) ** 2))
     )
+
+
+lb_f12 = [0, math.pi]
+ub_f12 = [0, math.pi]
+
+
+def f12(x, y):
+    return -math.sin(x) * math.pow(math.sin((x**2) / math.pi), 20) - math.sin(
+        y
+    ) * math.pow(math.sin((2 * y**2) / math.pi), 20)
 
 
 def generate_population(lower_bound, upper_bound, population_size):
@@ -156,7 +166,7 @@ def run_experiment(
     return sorted_population
 
 
-result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
+result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d)
 
 for point in result:
     print(point)
