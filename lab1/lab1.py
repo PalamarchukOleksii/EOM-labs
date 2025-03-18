@@ -13,6 +13,7 @@ ub_f4 = [10, 10]
 d = 0.5
 
 gen_limit = 50
+num_experiments = 1000
 
 
 def f4(x, y):
@@ -145,9 +146,6 @@ def run_experiment(
     sigma = [(upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))]
 
     for i in range(generation_limit):
-        if i % 10 == 0:
-            print(f"Generation {i}...")
-
         elite_count = int(len(sorted_population) * elite_fraction)
         crossover_count = int(len(sorted_population) * crossover_fraction)
 
@@ -174,17 +172,22 @@ def run_experiment(
     return sorted_population
 
 
+def run_multiple_experiments(num_experiments, *args):
+    results = [run_experiment(*args) for _ in range(num_experiments)]
+
+    avg_best_value = sum(res[1][1] for res in results) / num_experiments
+    return results, avg_best_value
+
+
 if __name__ == "__main__":
-    print("Running experiment for function f4...")
-    result = run_experiment(P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d)
-
-    for point, value in result:
-        print(f"Point: {point}, Value: {value}")
-
-    print("\nRunning experiment for function f12...")
-    result = run_experiment(
-        P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d
+    print("Running multiple experiments for function f4...")
+    results, avg_best_f4 = run_multiple_experiments(
+        num_experiments, P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d
     )
+    print(f"Average best value for f4: {avg_best_f4}")
 
-    for point, value in result:
-        print(f"Point: {point}, Value: {value}")
+    print("\nRunning multiple experiments for function f12...")
+    results, avg_best_f12 = run_multiple_experiments(
+        num_experiments, P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d
+    )
+    print(f"Average best value for f12: {avg_best_f12}")
