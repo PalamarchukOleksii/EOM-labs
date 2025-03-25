@@ -1,19 +1,22 @@
 import random
 import math
 
-P = 25
+P = 50
 
 fi_sel = 0.2
 fi_cross = 0.7
 fi_mut = 0.1
 
-lb_f4 = [-10, -10]
-ub_f4 = [10, 10]
-
 d = 0.5
 
 gen_limit = 50
 num_experiments = 1000
+
+lb_f4 = [-10, -10]
+ub_f4 = [10, 10]
+
+true_minimum_f4 = 0
+epsilon_radius_f4 = 0.05
 
 
 def f4(x, y):
@@ -26,6 +29,9 @@ def f4(x, y):
 
 lb_f12 = [0, 0]
 ub_f12 = [math.pi, math.pi]
+
+true_minimum_f12 = -1.8013
+epsilon_radius_f12 = 0.01
 
 
 def f12(x, y):
@@ -172,22 +178,79 @@ def run_experiment(
     return sorted_population
 
 
-def run_multiple_experiments(num_experiments, *args):
+def run_multiple_experiments(num_experiments, epsilon_radius, true_minimum, *args):
     results = [run_experiment(*args) for _ in range(num_experiments)]
 
-    avg_best_value = sum(res[1][1] for res in results) / num_experiments
-    return results, avg_best_value
+    best_result = float("inf")
+    successful_experiments = 0
+    total_points = 0
+    successful_points = 0
+
+    for res in results:
+        best_result = min(best_result, res[0][1])
+
+        num_mutation_points = int(len(res) * fi_mut)
+        non_mutated_points = (
+            res[:-num_mutation_points] if num_mutation_points > 0 else res
+        )
+
+        if all(
+            abs(point[1] - true_minimum) <= epsilon_radius
+            for point in non_mutated_points
+        ):
+            successful_experiments += 1
+
+        for point in res:
+            if abs(point[1] - true_minimum) <= epsilon_radius:
+                successful_points += 1
+            total_points += 1
+
+    success_rate = successful_experiments / num_experiments * 100
+    overall_accuracy = successful_points / total_points * 100
+
+    return {
+        "results": results,
+        "best_result": best_result,
+        "success_rate": success_rate,
+        "overall_accuracy": overall_accuracy,
+    }
 
 
 if __name__ == "__main__":
     print("Running multiple experiments for function f4...")
-    results, avg_best_f4 = run_multiple_experiments(
-        num_experiments, P, fi_sel, fi_cross, fi_mut, lb_f4, ub_f4, gen_limit, f4, d
+    metrics_f4 = run_multiple_experiments(
+        num_experiments,
+        epsilon_radius_f4,
+        true_minimum_f4,
+        P,
+        fi_sel,
+        fi_cross,
+        fi_mut,
+        lb_f4,
+        ub_f4,
+        gen_limit,
+        f4,
+        d,
     )
-    print(f"Average best value for f4: {avg_best_f4}")
+    print(f"Best result for f4: {metrics_f4['best_result']}")
+    print(f"Success rate for f4: {metrics_f4['success_rate']}%")
+    print(f"Overall accuracy for f4: {metrics_f4['overall_accuracy']}%")
 
     print("\nRunning multiple experiments for function f12...")
-    results, avg_best_f12 = run_multiple_experiments(
-        num_experiments, P, fi_sel, fi_cross, fi_mut, lb_f12, ub_f12, gen_limit, f12, d
+    metrics_f12 = run_multiple_experiments(
+        num_experiments,
+        epsilon_radius_f12,
+        true_minimum_f12,
+        P,
+        fi_sel,
+        fi_cross,
+        fi_mut,
+        lb_f12,
+        ub_f12,
+        gen_limit,
+        f12,
+        d,
     )
-    print(f"Average best value for f12: {avg_best_f12}")
+    print(f"Best result for f12: {metrics_f12['best_result']}")
+    print(f"Success rate for f12: {metrics_f12['success_rate']}%")
+    print(f"Overall accuracy for f12: {metrics_f12['overall_accuracy']}%")
