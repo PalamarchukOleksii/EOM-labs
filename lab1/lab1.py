@@ -265,6 +265,7 @@ def check_epsilon_sphere(point, true_minimum, epsilon_radius):
 
 
 def run_multiple_experiments(
+    short_experiment_name,
     NUM_EXPERIMENTS,
     epsilon_radius,
     true_minimum,
@@ -279,7 +280,9 @@ def run_multiple_experiments(
     mutation_fraction,
 ):
     function_name = function.__name__
-    plots_output_dir = os.path.join(SCRIPT_DIRECTORY, f"plots/{function_name}")
+    plots_output_dir = os.path.join(
+        SCRIPT_DIRECTORY, f"plots/{function_name}/{short_experiment_name}"
+    )
     os.makedirs(plots_output_dir, exist_ok=True)
 
     global F4_CALL_COUNTER, F12_CALL_COUNTER
@@ -312,9 +315,7 @@ def run_multiple_experiments(
             lower_bound,
             upper_bound,
             f"Function {function_name} Landscape experiment {i+1}",
-            os.path.join(
-                SCRIPT_DIRECTORY, f"plots/{function_name}/experiment_{i+1}.png"
-            ),
+            os.path.join(plots_output_dir, f"experiment_{i+1}.png"),
             result,
         )
 
@@ -375,7 +376,10 @@ if __name__ == "__main__":
                 f"\nRunning experiments for Population Size {P} with {param_set['name']}:"
             )
 
+            experiment_name = f"p{P}_fiElite{param_set['fi_sel']}_fiCross{param_set['fi_cross']}_fiMut{param_set['fi_mut']}"
+
             metrics_f4 = run_multiple_experiments(
+                experiment_name,
                 NUM_EXPERIMENTS,
                 EPSILON_RADIUS_F4,
                 TRUE_MINIMUM_F4,
@@ -391,6 +395,7 @@ if __name__ == "__main__":
             )
 
             metrics_f12 = run_multiple_experiments(
+                experiment_name,
                 NUM_EXPERIMENTS,
                 EPSILON_RADIUS_F12,
                 TRUE_MINIMUM_F12,
