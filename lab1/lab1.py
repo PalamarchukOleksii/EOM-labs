@@ -15,14 +15,14 @@ os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 LOG_PATH = os.path.join(OUTPUT_DIRECTORY, LOG_FILE_NAME)
 CSV_SAVE_PATH = os.path.join(OUTPUT_DIRECTORY, "comprehensive_results.csv")
 
-POPULATION_SIZES = [30, 50, 100]
+POPULATION_SIZES = [30, 60, 120, 240]
 PARAMETERS_SETS = [
-    {"name": "Low Elite Selection", "fi_sel": 0.1, "fi_cross": 0.6, "fi_mut": 0.3},
+    {"name": "Low Elite Selection", "fi_sel": 0.1, "fi_cross": 0.8, "fi_mut": 0.1},
     {
         "name": "Medium Elite Selection",
         "fi_sel": 0.2,
-        "fi_cross": 0.6,
-        "fi_mut": 0.2,
+        "fi_cross": 0.7,
+        "fi_mut": 0.1,
     },
     {"name": "High Elite Selection", "fi_sel": 0.3, "fi_cross": 0.6, "fi_mut": 0.1},
 ]
