@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import os
 import sys
 
@@ -9,23 +10,29 @@ LOG_TO_FILE_FLAG = True
 LOG_FILE_NAME = "output_log.txt"
 LOG_PATH = os.path.join(SCRIPT_DIRECTORY, LOG_FILE_NAME)
 
-P = 50
+POPULATION_SIZES = [30, 50, 100]
+PARAMETERS_SETS = [
+    {"name": "Low Elite Selection", "fi_sel": 0.1, "fi_cross": 0.6, "fi_mut": 0.3},
+    {
+        "name": "Medium Elite Selection",
+        "fi_sel": 0.2,
+        "fi_cross": 0.6,
+        "fi_mut": 0.2,
+    },
+    {"name": "High Elite Selection", "fi_sel": 0.3, "fi_cross": 0.6, "fi_mut": 0.1},
+]
 
-fi_sel = 0.2
-fi_cross = 0.7
-fi_mut = 0.1
+D = 0.5
 
-d = 0.5
-
-gen_limit = 50
-num_experiments = 100
+GEN_LIMIT = 50
+NUM_EXPERIMENTS = 100
 
 
-lb_f4 = [-10, -10]
-ub_f4 = [10, 10]
+LB_F4 = [-10, -10]
+UB_F4 = [10, 10]
 
-true_minimum_f4 = ([1, 1], 0)
-epsilon_radius_f4 = 0.05
+TRUE_MINIMUM_F4 = ([1, 1], 0)
+EPSILON_RADIUS_F4 = 0.05
 
 
 def f4(x, y):
@@ -36,11 +43,11 @@ def f4(x, y):
     )
 
 
-lb_f12 = [0, 0]
-ub_f12 = [np.pi, np.pi]
+LB_F12 = [0, 0]
+UB_F12 = [np.pi, np.pi]
 
-true_minimum_f12 = ([2.20, 1.57], -1.8013)
-epsilon_radius_f12 = 0.01
+TRUE_MINIMUM_F12 = ([2.20, 1.57], -1.8013)
+EPSILON_RADIUS_F12 = 0.01
 
 
 def f12(x, y):
@@ -144,14 +151,14 @@ def mutate_population(population, lower_bound, upper_bound, sigma, function):
 
 def run_experiment(
     population_size,
-    elite_fraction,
-    crossover_fraction,
-    mutation_fraction,
     lower_bound,
     upper_bound,
     generation_limit,
     function,
     crossover_area_expansion,
+    elite_fraction,
+    crossover_fraction,
+    mutation_fraction,
 ):
     population = generate_population(
         lower_bound, upper_bound, population_size, function
@@ -247,35 +254,35 @@ def check_epsilon_sphere(point, true_minimum, epsilon_radius):
 
 
 def run_multiple_experiments(
-    num_experiments,
+    NUM_EXPERIMENTS,
     epsilon_radius,
     true_minimum,
     population_size,
-    elite_fraction,
-    crossover_fraction,
-    mutation_fraction,
     lower_bound,
     upper_bound,
     generation_limit,
     function,
     crossover_area_expansion,
+    elite_fraction,
+    crossover_fraction,
+    mutation_fraction,
 ):
     function_name = function.__name__
     output_dir = f"plots/{function_name}"
     os.makedirs(output_dir, exist_ok=True)
 
     results = []
-    for i in range(num_experiments):
+    for i in range(NUM_EXPERIMENTS):
         result = run_experiment(
             population_size,
-            elite_fraction,
-            crossover_fraction,
-            mutation_fraction,
             lower_bound,
             upper_bound,
             generation_limit,
             function,
             crossover_area_expansion,
+            elite_fraction,
+            crossover_fraction,
+            mutation_fraction,
         )
         results.append(result)
 
@@ -302,7 +309,7 @@ def run_multiple_experiments(
     for res in results:
         best_result = min(best_result, res[0][1])
 
-        num_mutation_points = int(len(res) * fi_mut)
+        num_mutation_points = int(len(res) * mutation_fraction)
         non_mutated_points = (
             res[:-num_mutation_points] if num_mutation_points > 0 else res
         )
@@ -318,7 +325,7 @@ def run_multiple_experiments(
                 successful_points += 1
             total_points += 1
 
-    success_rate = successful_experiments / num_experiments * 100
+    success_rate = successful_experiments / NUM_EXPERIMENTS * 100
     overall_accuracy = successful_points / total_points * 100
 
     return {
@@ -339,43 +346,78 @@ if __name__ == "__main__":
     else:
         log_file.close()
 
-    print("Running multiple experiments for function f4...")
-    metrics_f4 = run_multiple_experiments(
-        num_experiments,
-        epsilon_radius_f4,
-        true_minimum_f4,
-        P,
-        fi_sel,
-        fi_cross,
-        fi_mut,
-        lb_f4,
-        ub_f4,
-        gen_limit,
-        f4,
-        d,
-    )
-    print(f"Best result for f4: {metrics_f4['best_result']}")
-    print(f"Success rate for f4: {metrics_f4['success_rate']}%")
-    print(f"Overall accuracy for f4: {metrics_f4['overall_accuracy']}%")
+    results_data = []
 
-    print("\nRunning multiple experiments for function f12...")
-    metrics_f12 = run_multiple_experiments(
-        num_experiments,
-        epsilon_radius_f12,
-        true_minimum_f12,
-        P,
-        fi_sel,
-        fi_cross,
-        fi_mut,
-        lb_f12,
-        ub_f12,
-        gen_limit,
-        f12,
-        d,
-    )
-    print(f"Best result for f12: {metrics_f12['best_result']}")
-    print(f"Success rate for f12: {metrics_f12['success_rate']}%")
-    print(f"Overall accuracy for f12: {metrics_f12['overall_accuracy']}%")
+    for P in POPULATION_SIZES:
+        for param_set in PARAMETERS_SETS:
+            print(
+                f"\nRunning experiments for Population Size {P} with {param_set['name']}:"
+            )
+
+            metrics_f4 = run_multiple_experiments(
+                NUM_EXPERIMENTS,
+                EPSILON_RADIUS_F4,
+                TRUE_MINIMUM_F4,
+                P,
+                LB_F4,
+                UB_F4,
+                GEN_LIMIT,
+                f4,
+                D,
+                elite_fraction=param_set["fi_sel"],
+                crossover_fraction=param_set["fi_cross"],
+                mutation_fraction=param_set["fi_mut"],
+            )
+
+            metrics_f12 = run_multiple_experiments(
+                NUM_EXPERIMENTS,
+                EPSILON_RADIUS_F12,
+                TRUE_MINIMUM_F12,
+                P,
+                LB_F12,
+                UB_F12,
+                GEN_LIMIT,
+                f12,
+                D,
+                elite_fraction=param_set["fi_sel"],
+                crossover_fraction=param_set["fi_cross"],
+                mutation_fraction=param_set["fi_mut"],
+            )
+
+            results_data.append(
+                {
+                    "Population Size": P,
+                    "Selection Strategy": param_set["name"],
+                    "Selection Fraction": param_set["fi_sel"],
+                    "Crossover Fraction": param_set["fi_cross"],
+                    "Mutation Fraction": param_set["fi_mut"],
+                    "F4 Best Result": metrics_f4["best_result"],
+                    "F4 Success Rate (%)": metrics_f4["success_rate"],
+                    "F4 Overall Accuracy (%)": metrics_f4["overall_accuracy"],
+                    "F12 Best Result": metrics_f12["best_result"],
+                    "F12 Success Rate (%)": metrics_f12["success_rate"],
+                    "F12 Overall Accuracy (%)": metrics_f12["overall_accuracy"],
+                }
+            )
+
+    results_df = pd.DataFrame(results_data)
+    float_columns = [
+        "F4 Best Result",
+        "F4 Success Rate (%)",
+        "F4 Overall Accuracy (%)",
+        "F12 Best Result",
+        "F12 Success Rate (%)",
+        "F12 Overall Accuracy (%)",
+    ]
+    for col in float_columns:
+        results_df[col] = results_df[col].round(4)
+
+    print("\nComprehensive Comparative Results Table:")
+    print(results_df.to_string(index=False))
+
+    csv_save_path = os.path.join(SCRIPT_DIRECTORY, "comprehensive_results.csv")
+    results_df.to_csv(csv_save_path, index=False)
+    print(f"\nResults saved to {csv_save_path}")
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
