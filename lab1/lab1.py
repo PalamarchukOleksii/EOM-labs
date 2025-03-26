@@ -1,5 +1,7 @@
 import random
-import math
+import numpy as np
+import matplotlib.pyplot as plt
+import os
 
 P = 50
 
@@ -10,7 +12,7 @@ fi_mut = 0.1
 d = 0.5
 
 gen_limit = 50
-num_experiments = 1000
+num_experiments = 100
 
 lb_f4 = [-10, -10]
 ub_f4 = [10, 10]
@@ -21,23 +23,23 @@ epsilon_radius_f4 = 0.05
 
 def f4(x, y):
     return (
-        (math.sin(3 * math.pi * x)) ** 2
-        + ((x - 1) ** 2 * (1 + (math.sin(3 * math.pi * y)) ** 2))
-        + ((y - 1) ** 2 * (1 + (math.sin(2 * math.pi * y)) ** 2))
+        (np.sin(3 * np.pi * x)) ** 2
+        + ((x - 1) ** 2 * (1 + (np.sin(3 * np.pi * y)) ** 2))
+        + ((y - 1) ** 2 * (1 + (np.sin(2 * np.pi * y)) ** 2))
     )
 
 
 lb_f12 = [0, 0]
-ub_f12 = [math.pi, math.pi]
+ub_f12 = [np.pi, np.pi]
 
 true_minimum_f12 = -1.8013
 epsilon_radius_f12 = 0.01
 
 
 def f12(x, y):
-    return -math.sin(x) * math.pow(math.sin((x**2) / math.pi), 20) - math.sin(
-        y
-    ) * math.pow(math.sin((2 * y**2) / math.pi), 20)
+    return -np.sin(x) * np.pow(np.sin((x**2) / np.pi), 20) - np.sin(y) * np.pow(
+        np.sin((2 * y**2) / np.pi), 20
+    )
 
 
 def generate_population(lower_bound, upper_bound, population_size, function):
@@ -178,8 +180,99 @@ def run_experiment(
     return sorted_population
 
 
-def run_multiple_experiments(num_experiments, epsilon_radius, true_minimum, *args):
-    results = [run_experiment(*args) for _ in range(num_experiments)]
+def plot_function_landscape(
+    function, lower_bound, upper_bound, title, filename, points=None
+):
+    resolution = 1000
+    x = np.linspace(lower_bound[0], upper_bound[0], resolution)
+    y = np.linspace(lower_bound[1], upper_bound[1], resolution)
+
+    X, Y = np.meshgrid(x, y)
+    Z = function(X, Y)
+
+    plt.figure(figsize=(10, 8))
+
+    im = plt.imshow(
+        Z,
+        extent=[lower_bound[0], upper_bound[0], lower_bound[1], upper_bound[1]],
+        origin="lower",
+        aspect="equal",
+        cmap="viridis",
+        interpolation="nearest",
+    )
+
+    cbar = plt.colorbar(im, label="Function Value", shrink=0.8)
+    cbar.ax.tick_params(labelsize=8)
+
+    if points:
+        x_points = np.array([point[0][0] for point in points])
+        y_points = np.array([point[0][1] for point in points])
+
+        plt.scatter(
+            x_points,
+            y_points,
+            color="black",
+            alpha=0.7,
+            s=30,
+            edgecolors="white",
+            linewidth=0.5,
+        )
+
+    plt.title(title, fontsize=12)
+    plt.xlabel("X", fontsize=10)
+    plt.ylabel("Y", fontsize=10)
+    plt.xticks(fontsize=8)
+    plt.yticks(fontsize=8)
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def run_multiple_experiments(
+    num_experiments,
+    epsilon_radius,
+    true_minimum,
+    population_size,
+    elite_fraction,
+    crossover_fraction,
+    mutation_fraction,
+    lower_bound,
+    upper_bound,
+    generation_limit,
+    function,
+    crossover_area_expansion,
+):
+    function_name = function.__name__
+    output_dir = f"plots/{function_name}"
+    os.makedirs(output_dir, exist_ok=True)
+
+    results = []
+    for i in range(num_experiments):
+        result = run_experiment(
+            population_size,
+            elite_fraction,
+            crossover_fraction,
+            mutation_fraction,
+            lower_bound,
+            upper_bound,
+            generation_limit,
+            function,
+            crossover_area_expansion,
+        )
+        results.append(result)
+
+        print(f"\nFunction {function_name} experiment {i+1} results:")
+        for res in result:
+            print(res)
+
+        plot_function_landscape(
+            function,
+            lower_bound,
+            upper_bound,
+            f"Function {function_name} Landscape experiment {i+1}",
+            f"plots/{function_name}/experiment_{i+1}.png",
+            result,
+        )
 
     best_result = float("inf")
     successful_experiments = 0
