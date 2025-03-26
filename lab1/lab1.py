@@ -320,12 +320,16 @@ def run_multiple_experiments(
         )
 
     best_result = float("inf")
+    best_result_coords = None
     successful_experiments = 0
     total_points = 0
     successful_points = 0
 
     for res in results:
-        best_result = min(best_result, res[0][1])
+        current_best = res[0]
+        if current_best[1] < best_result:
+            best_result = current_best[1]
+            best_result_coords = current_best[0]
 
         num_mutation_points = int(len(res) * mutation_fraction)
         non_mutated_points = (
@@ -349,12 +353,13 @@ def run_multiple_experiments(
     function_call_count = F4_CALL_COUNTER if function_name == "f4" else F12_CALL_COUNTER
 
     return {
+        "num_experiments": NUM_EXPERIMENTS,
         "results": results,
         "best_result": best_result,
+        "best_result_coords": best_result_coords,
         "success_rate": success_rate,
         "overall_accuracy": overall_accuracy,
-        "function_call_count": function_call_count,
-        "average_function_calls_per_experiment": function_call_count / NUM_EXPERIMENTS,
+        "function_calls_per_experiment": function_call_count / NUM_EXPERIMENTS,
     }
 
 
@@ -410,40 +415,43 @@ if __name__ == "__main__":
                 mutation_fraction=param_set["fi_mut"],
             )
 
-            results_data.append(
-                {
-                    "Population Size": P,
-                    "Selection Strategy": param_set["name"],
-                    "Selection Fraction": param_set["fi_sel"],
-                    "Crossover Fraction": param_set["fi_cross"],
-                    "Mutation Fraction": param_set["fi_mut"],
-                    "F4 Best Result": metrics_f4["best_result"],
-                    "F4 Success Rate (%)": metrics_f4["success_rate"],
-                    "F4 Overall Accuracy (%)": metrics_f4["overall_accuracy"],
-                    "F4 Total Function Calls": metrics_f4["function_call_count"],
-                    "F4 Avg Calls per Experiment": metrics_f4[
-                        "average_function_calls_per_experiment"
-                    ],
-                    "F12 Best Result": metrics_f12["best_result"],
-                    "F12 Success Rate (%)": metrics_f12["success_rate"],
-                    "F12 Overall Accuracy (%)": metrics_f12["overall_accuracy"],
-                    "F12 Total Function Calls": metrics_f12["function_call_count"],
-                    "F12 Avg Calls per Experiment": metrics_f12[
-                        "average_function_calls_per_experiment"
-                    ],
-                }
-            )
+            result_entry = {
+                "Number of Experiments": NUM_EXPERIMENTS,
+                "Population Size": P,
+                "Selection Strategy": param_set["name"],
+                "Selection Fraction": param_set["fi_sel"],
+                "Crossover Fraction": param_set["fi_cross"],
+                "Mutation Fraction": param_set["fi_mut"],
+                "F4 Best Result": metrics_f4["best_result"],
+                "F4 Best Result Coords": metrics_f4["best_result_coords"],
+                "F4 Success Rate (%)": metrics_f4["success_rate"],
+                "F4 Overall Accuracy (%)": metrics_f4["overall_accuracy"],
+                "F4 Calls per Experiment": metrics_f4["function_calls_per_experiment"],
+                "F12 Best Result": metrics_f12["best_result"],
+                "F12 Best Result Coords": metrics_f12["best_result_coords"],
+                "F12 Success Rate (%)": metrics_f12["success_rate"],
+                "F12 Overall Accuracy (%)": metrics_f12["overall_accuracy"],
+                "F12 Calls per Experiment": metrics_f12[
+                    "function_calls_per_experiment"
+                ],
+            }
+
+            print(f"\nResults:")
+            for key, value in result_entry.items():
+                print(f"{key}: {value}")
+
+            results_data.append(result_entry)
 
     results_df = pd.DataFrame(results_data)
     float_columns = [
         "F4 Best Result",
+        "F4 Best Result Coords",
         "F4 Success Rate (%)",
         "F4 Overall Accuracy (%)",
-        "F4 Avg Calls per Experiment",
         "F12 Best Result",
+        "F12 Best Result Coords",
         "F12 Success Rate (%)",
         "F12 Overall Accuracy (%)",
-        "F12 Avg Calls per Experiment",
     ]
     for col in float_columns:
         results_df[col] = results_df[col].round(4)
