@@ -32,6 +32,8 @@ D = 0.5
 GEN_LIMIT = 50
 NUM_EXPERIMENTS = 100
 
+F4_CALL_COUNTER = 0
+F12_CALL_COUNTER = 0
 
 LB_F4 = [-10, -10]
 UB_F4 = [10, 10]
@@ -41,6 +43,8 @@ EPSILON_RADIUS_F4 = 0.05
 
 
 def f4(x, y):
+    global F4_CALL_COUNTER
+    F4_CALL_COUNTER += 1
     return (
         (np.sin(3 * np.pi * x)) ** 2
         + ((x - 1) ** 2 * (1 + (np.sin(3 * np.pi * y)) ** 2))
@@ -56,6 +60,8 @@ EPSILON_RADIUS_F12 = 0.01
 
 
 def f12(x, y):
+    global F12_CALL_COUNTER
+    F12_CALL_COUNTER += 1
     return -np.sin(x) * np.pow(np.sin((x**2) / np.pi), 20) - np.sin(y) * np.pow(
         np.sin((2 * y**2) / np.pi), 20
     )
@@ -273,8 +279,14 @@ def run_multiple_experiments(
     mutation_fraction,
 ):
     function_name = function.__name__
-    output_dir = f"plots/{function_name}"
-    os.makedirs(output_dir, exist_ok=True)
+    plots_output_dir = os.path.join(SCRIPT_DIRECTORY, f"plots/{function_name}")
+    os.makedirs(plots_output_dir, exist_ok=True)
+
+    global F4_CALL_COUNTER, F12_CALL_COUNTER
+    if function_name == "f4":
+        F4_CALL_COUNTER = 0
+    elif function_name == "f12":
+        F12_CALL_COUNTER = 0
 
     results = []
     for i in range(NUM_EXPERIMENTS):
@@ -333,11 +345,15 @@ def run_multiple_experiments(
     success_rate = successful_experiments / NUM_EXPERIMENTS * 100
     overall_accuracy = successful_points / total_points * 100
 
+    function_call_count = F4_CALL_COUNTER if function_name == "f4" else F12_CALL_COUNTER
+
     return {
         "results": results,
         "best_result": best_result,
         "success_rate": success_rate,
         "overall_accuracy": overall_accuracy,
+        "function_call_count": function_call_count,
+        "average_function_calls_per_experiment": function_call_count / NUM_EXPERIMENTS,
     }
 
 
@@ -399,9 +415,17 @@ if __name__ == "__main__":
                     "F4 Best Result": metrics_f4["best_result"],
                     "F4 Success Rate (%)": metrics_f4["success_rate"],
                     "F4 Overall Accuracy (%)": metrics_f4["overall_accuracy"],
+                    "F4 Total Function Calls": metrics_f4["function_call_count"],
+                    "F4 Avg Calls per Experiment": metrics_f4[
+                        "average_function_calls_per_experiment"
+                    ],
                     "F12 Best Result": metrics_f12["best_result"],
                     "F12 Success Rate (%)": metrics_f12["success_rate"],
                     "F12 Overall Accuracy (%)": metrics_f12["overall_accuracy"],
+                    "F12 Total Function Calls": metrics_f12["function_call_count"],
+                    "F12 Avg Calls per Experiment": metrics_f12[
+                        "average_function_calls_per_experiment"
+                    ],
                 }
             )
 
@@ -410,9 +434,11 @@ if __name__ == "__main__":
         "F4 Best Result",
         "F4 Success Rate (%)",
         "F4 Overall Accuracy (%)",
+        "F4 Avg Calls per Experiment",
         "F12 Best Result",
         "F12 Success Rate (%)",
         "F12 Overall Accuracy (%)",
+        "F12 Avg Calls per Experiment",
     ]
     for col in float_columns:
         results_df[col] = results_df[col].round(4)
