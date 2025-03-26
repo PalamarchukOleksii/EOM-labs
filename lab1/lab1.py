@@ -2,6 +2,12 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+LOG_TO_FILE_FLAG = True
+LOG_FILE_NAME = "output_log.txt"
+LOG_PATH = os.path.join(SCRIPT_DIRECTORY, LOG_FILE_NAME)
 
 P = 50
 
@@ -14,10 +20,11 @@ d = 0.5
 gen_limit = 50
 num_experiments = 100
 
+
 lb_f4 = [-10, -10]
 ub_f4 = [10, 10]
 
-true_minimum_f4 = 0
+true_minimum_f4 = ([1, 1], 0)
 epsilon_radius_f4 = 0.05
 
 
@@ -32,7 +39,7 @@ def f4(x, y):
 lb_f12 = [0, 0]
 ub_f12 = [np.pi, np.pi]
 
-true_minimum_f12 = -1.8013
+true_minimum_f12 = ([2.20, 1.57], -1.8013)
 epsilon_radius_f12 = 0.01
 
 
@@ -226,6 +233,17 @@ def plot_function_landscape(
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches="tight")
     plt.close()
+    print(f"Plot saved as {filename}")
+
+
+def check_epsilon_sphere(point, true_minimum, epsilon_radius):
+    distance = np.sqrt(
+        (point[0][0] - true_minimum[0][0]) ** 2
+        + (point[0][1] - true_minimum[0][1]) ** 2
+        + (point[1] - true_minimum[1]) ** 2
+    )
+
+    return distance <= epsilon_radius
 
 
 def run_multiple_experiments(
@@ -270,7 +288,9 @@ def run_multiple_experiments(
             lower_bound,
             upper_bound,
             f"Function {function_name} Landscape experiment {i+1}",
-            f"plots/{function_name}/experiment_{i+1}.png",
+            os.path.join(
+                SCRIPT_DIRECTORY, f"plots/{function_name}/experiment_{i+1}.png"
+            ),
             result,
         )
 
@@ -288,13 +308,13 @@ def run_multiple_experiments(
         )
 
         if all(
-            abs(point[1] - true_minimum) <= epsilon_radius
+            check_epsilon_sphere(point, true_minimum, epsilon_radius)
             for point in non_mutated_points
         ):
             successful_experiments += 1
 
         for point in res:
-            if abs(point[1] - true_minimum) <= epsilon_radius:
+            if check_epsilon_sphere(point, true_minimum, epsilon_radius):
                 successful_points += 1
             total_points += 1
 
@@ -310,6 +330,15 @@ def run_multiple_experiments(
 
 
 if __name__ == "__main__":
+    original_stdout = sys.stdout
+    log_file = open(LOG_PATH, "w")
+
+    if LOG_TO_FILE_FLAG:
+        print(f"Logging output to {LOG_PATH}...")
+        sys.stdout = log_file
+    else:
+        log_file.close()
+
     print("Running multiple experiments for function f4...")
     metrics_f4 = run_multiple_experiments(
         num_experiments,
@@ -347,3 +376,8 @@ if __name__ == "__main__":
     print(f"Best result for f12: {metrics_f12['best_result']}")
     print(f"Success rate for f12: {metrics_f12['success_rate']}%")
     print(f"Overall accuracy for f12: {metrics_f12['overall_accuracy']}%")
+
+    if LOG_TO_FILE_FLAG:
+        log_file.close()
+        sys.stdout = original_stdout
+        print(f"All output is logged to {LOG_PATH}")
