@@ -8,7 +8,12 @@ import sys
 SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 LOG_TO_FILE_FLAG = True
 LOG_FILE_NAME = "output_log.txt"
-LOG_PATH = os.path.join(SCRIPT_DIRECTORY, LOG_FILE_NAME)
+
+OUTPUT_DIRECTORY = os.path.join(SCRIPT_DIRECTORY, "outputs")
+os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
+
+LOG_PATH = os.path.join(OUTPUT_DIRECTORY, LOG_FILE_NAME)
+CSV_SAVE_PATH = os.path.join(OUTPUT_DIRECTORY, "comprehensive_results.csv")
 
 POPULATION_SIZES = [30, 50, 100]
 PARAMETERS_SETS = [
@@ -415,9 +420,8 @@ if __name__ == "__main__":
     print("\nComprehensive Comparative Results Table:")
     print(results_df.to_string(index=False))
 
-    csv_save_path = os.path.join(SCRIPT_DIRECTORY, "comprehensive_results.csv")
-    results_df.to_csv(csv_save_path, index=False)
-    print(f"\nResults saved to {csv_save_path}")
+    results_df.to_csv(CSV_SAVE_PATH, index=False)
+    print(f"\nResults saved to {CSV_SAVE_PATH}")
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
