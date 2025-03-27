@@ -6,7 +6,7 @@ import os
 import sys
 
 SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-LOG_TO_FILE_FLAG = True
+LOG_TO_FILE_FLAG = False
 LOG_FILE_NAME = "output_log.txt"
 
 OUTPUT_DIRECTORY = os.path.join(SCRIPT_DIRECTORY, "outputs")
@@ -363,6 +363,158 @@ def run_multiple_experiments(
     }
 
 
+def prepare_graph_data(data, population_sizes, selection_coeffs, function_type):
+    success_rates = []
+    accuracy_rates = []
+    function_evals = []
+
+    for pop_size in population_sizes:
+        success_row = []
+        accuracy_row = []
+        function_eval_row = []
+
+        for selection_coeff in selection_coeffs:
+            subset = data[
+                (data["Population Size"] == pop_size)
+                & (data["Selection Fraction"] == selection_coeff)
+            ]
+
+            success_row.append(subset[f"{function_type} Success Rate (%)"].values[0])
+            accuracy_row.append(
+                subset[f"{function_type} Overall Accuracy (%)"].values[0]
+            )
+            function_eval_row.append(
+                subset[f"{function_type} Calls per Experiment"].values[0]
+            )
+
+        success_rates.append(success_row)
+        accuracy_rates.append(accuracy_row)
+        function_evals.append(function_eval_row)
+
+    return success_rates, accuracy_rates, function_evals
+
+
+def plot_success_rate(
+    population_sizes, selection_coeffs, success_rates, function_type, output_directory
+):
+    plt.figure(figsize=(10, 6))
+    for i, pop_size in enumerate(population_sizes):
+        plt.plot(
+            selection_coeffs,
+            success_rates[i],
+            marker="o",
+            label=f"Population {pop_size} Success",
+        )
+    plt.title(f"{function_type}: Success Percentage")
+    plt.xlabel("Selection Coefficient")
+    plt.ylabel("Success Percentage (%)")
+    plt.legend()
+    plt.grid(True)
+
+    output_filename = "success_rate.png"
+    output_path = os.path.join(output_directory, output_filename)
+    plt.savefig(output_path)
+    print(f"Success rate plot saved: {output_path}")
+
+    plt.close()
+
+
+def plot_accuracy_rate(
+    population_sizes, selection_coeffs, accuracy_rates, function_type, output_directory
+):
+    plt.figure(figsize=(10, 6))
+    for i, pop_size in enumerate(population_sizes):
+        plt.plot(
+            selection_coeffs,
+            accuracy_rates[i],
+            marker="o",
+            label=f"Population {pop_size} Accuracy",
+        )
+    plt.title(f"{function_type}: Minimum Determination Accuracy")
+    plt.xlabel("Selection Coefficient")
+    plt.ylabel("Minimum Determination Accuracy (%)")
+    plt.legend()
+    plt.grid(True)
+
+    output_filename = "accuracy_rate.png"
+    output_path = os.path.join(output_directory, output_filename)
+    plt.savefig(output_path)
+    print(f"Accuracy rate plot saved: {output_path}")
+
+    plt.close()
+
+
+def plot_function_evals(
+    population_sizes, selection_coeffs, function_evals, function_type, output_directory
+):
+    plt.figure(figsize=(12, 6))
+    width = 0.2
+    x = np.arange(len(selection_coeffs))
+    for i, pop_size in enumerate(population_sizes):
+        plt.bar(
+            x + i * width,
+            function_evals[i],
+            width=width,
+            label=f"Population {pop_size}",
+        )
+    plt.title(f"{function_type}: Number of Test Function Calls")
+    plt.xlabel("Selection Coefficient")
+    plt.ylabel("Number of Function Calls")
+    plt.xticks(x + width * 1.5, selection_coeffs)
+    plt.legend()
+    plt.grid(True, axis="y")
+    plt.tight_layout()
+
+    output_filename = "function_evals.png"
+    output_path = os.path.join(output_directory, output_filename)
+    plt.savefig(output_path)
+    print(f"Function evaluations plot saved: {output_path}")
+
+    plt.close()
+
+
+def plot_visualization_graphs(input_file_path, output_base_directory):
+    print(f"\nLoading data from: {input_file_path}...")
+    data = pd.read_csv(input_file_path)
+
+    population_sizes = sorted(data["Population Size"].unique())
+    selection_coeffs = sorted(data["Selection Fraction"].unique())
+
+    f4_output_dir = os.path.join(output_base_directory, "f4")
+    f12_output_dir = os.path.join(output_base_directory, "f12")
+    os.makedirs(f4_output_dir, exist_ok=True)
+    os.makedirs(f12_output_dir, exist_ok=True)
+
+    f4_success_rates, f4_accuracy_rates, f4_function_evals = prepare_graph_data(
+        data, population_sizes, selection_coeffs, "F4"
+    )
+    f12_success_rates, f12_accuracy_rates, f12_function_evals = prepare_graph_data(
+        data, population_sizes, selection_coeffs, "F12"
+    )
+
+    print("\nGenerating graphs for F4...")
+    plot_success_rate(
+        population_sizes, selection_coeffs, f4_success_rates, "F4", f4_output_dir
+    )
+    plot_accuracy_rate(
+        population_sizes, selection_coeffs, f4_accuracy_rates, "F4", f4_output_dir
+    )
+    plot_function_evals(
+        population_sizes, selection_coeffs, f4_function_evals, "F4", f4_output_dir
+    )
+
+    print("\nGenerating graphs for F12...")
+    plot_success_rate(
+        population_sizes, selection_coeffs, f12_success_rates, "F12", f12_output_dir
+    )
+    plot_accuracy_rate(
+        population_sizes, selection_coeffs, f12_accuracy_rates, "F12", f12_output_dir
+    )
+    plot_function_evals(
+        population_sizes, selection_coeffs, f12_function_evals, "F12", f12_output_dir
+    )
+
+
 if __name__ == "__main__":
     original_stdout = sys.stdout
     log_file = open(LOG_PATH, "w")
@@ -461,6 +613,8 @@ if __name__ == "__main__":
 
     results_df.to_csv(CSV_SAVE_PATH, index=False)
     print(f"\nResults saved to {CSV_SAVE_PATH}")
+
+    plot_visualization_graphs(CSV_SAVE_PATH, OUTPUT_DIRECTORY)
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
