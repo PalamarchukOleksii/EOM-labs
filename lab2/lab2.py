@@ -222,15 +222,28 @@ class FunctionsMinimumsInfo:
         min_info = {}
         min_info["func_count"] = len(self.__functions_list)
 
+        min_points = []
+        min_values = []
+
         for i, func in enumerate(self.__functions_list):
             min_point, min_value = self.__find_minimum(func)
-            min_info[f"func{i+1}_min_point"] = min_point
-            min_info[f"func{i+1}_min_value"] = min_value
+            min_points.append(min_point)
+            min_values.append(min_value)
 
-            for j, other_func in enumerate(self.__functions_list):
-                if i != j:
-                    other_value_at_min = other_func(*min_point)
-                    min_info[f"func{i+1}_value_at_func{j+1}_min"] = other_value_at_min
+        grouped_min_info = []
+
+        for i in range(len(self.__functions_list)):
+            grouped_min_info.append((min_points[i]))
+
+        min_info["grouped_minimums"] = grouped_min_info
+
+        grouped_value_in_min_info = []
+
+        for i in range(len(self.__functions_list)):
+            values_at_min = [func(*min_points[i]) for func in self.__functions_list]
+            grouped_value_in_min_info.append(tuple(values_at_min))
+
+        min_info["grouped_values_in_minimums"] = grouped_value_in_min_info
 
         return min_info
 
@@ -287,6 +300,14 @@ class ResultVisualizer:
             dominated_f6,
         )
 
+    def __save_plot(self, experiment_name, plot_type, fig):
+        save_path = os.path.join(
+            self.__output_directory, f"{plot_type}_{experiment_name}.png"
+        )
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.show()
+
     def __plot_pareto_set(
         self,
         x,
@@ -298,6 +319,7 @@ class ResultVisualizer:
         lower_bound,
         upper_bound,
         ax,
+        function_names,
         min_info=None,
     ):
         ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
@@ -307,12 +329,12 @@ class ResultVisualizer:
             for i in range(min_info["func_count"]):
                 color = self.__min_colors[i % len(self.__min_colors)]
                 ax.scatter(
-                    min_info[f"func{i+1}_min_point"][0],
-                    min_info[f"func{i+1}_min_point"][1],
+                    min_info["grouped_minimums"][i][0],
+                    min_info["grouped_minimums"][i][1],
                     color=color,
                     marker="x",
                     s=100,
-                    label=f"Func {i+1} Min",
+                    label=f"Min of {function_names[i]}",
                 )
 
         ax.set_title(title)
@@ -334,6 +356,7 @@ class ResultVisualizer:
         ylabel,
         legend_labels,
         ax,
+        function_names,
         min_info=None,
     ):
         ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
@@ -343,24 +366,14 @@ class ResultVisualizer:
             for i in range(min_info["func_count"]):
                 color = self.__min_colors[i % len(self.__min_colors)]
 
-                if i == 0:
-                    ax.scatter(
-                        min_info[f"func{i+1}_min_value"],
-                        min_info[f"func{i+1}_value_at_func2_min"],
-                        color=color,
-                        marker="x",
-                        s=100,
-                        label=f"Func {i+1} Min Value",
-                    )
-                elif i == 1:
-                    ax.scatter(
-                        min_info[f"func{i+1}_value_at_func1_min"],
-                        min_info[f"func{i+1}_min_value"],
-                        color=color,
-                        marker="x",
-                        s=100,
-                        label=f"Func {i+1} Min Value",
-                    )
+                ax.scatter(
+                    min_info["grouped_values_in_minimums"][i][0],
+                    min_info["grouped_values_in_minimums"][i][1],
+                    color=color,
+                    marker="x",
+                    s=100,
+                    label=f"Point based on f3 and f6 values in min of f{3 if i == 0 else 6}",
+                )
 
         ax.set_title(title)
         ax.set_xlabel(xlabel)
@@ -368,16 +381,14 @@ class ResultVisualizer:
         ax.legend()
         ax.grid(True)
 
-    def __save_plot(self, experiment_name, plot_type, fig):
-        save_path = os.path.join(
-            self.__output_directory, f"{plot_type}_{experiment_name}.png"
-        )
-        plt.tight_layout()
-        plt.savefig(save_path)
-        plt.show()
-
     def plot_pareto_all_points(
-        self, population, experiment_name, lower_bound, upper_bound, min_info=None
+        self,
+        population,
+        experiment_name,
+        lower_bound,
+        upper_bound,
+        function_names,
+        min_info=None,
     ):
         (
             pareto_set_x,
@@ -402,24 +413,32 @@ class ResultVisualizer:
             lower_bound,
             upper_bound,
             axes[0],
-            min_info=min_info,
+            function_names,
+            min_info,
         )
 
         self.__plot_pareto_front(
             [pareto_f3, dominated_f3],
             [pareto_f6, dominated_f6],
             f"Pareto Front - All Points - {experiment_name}",
-            "F3",
-            "F6",
+            function_names[0],
+            function_names[1],
             ["Pareto-optimal", "Dominated"],
             axes[1],
-            min_info=min_info,
+            function_names,
+            min_info,
         )
 
         self.__save_plot(experiment_name, "pareto_all_points", fig)
 
     def plot_pareto_non_dominated_only(
-        self, population, experiment_name, lower_bound, upper_bound, min_info=None
+        self,
+        population,
+        experiment_name,
+        lower_bound,
+        upper_bound,
+        function_names,
+        min_info=None,
     ):
         (
             pareto_set_x,
@@ -444,18 +463,20 @@ class ResultVisualizer:
             lower_bound,
             upper_bound,
             axes[0],
-            min_info=min_info,
+            function_names,
+            min_info,
         )
 
         self.__plot_pareto_front(
             [pareto_f3, []],
             [pareto_f6, []],
             f"Pareto Front - Non-Dominated - {experiment_name}",
-            "F3",
-            "F6",
+            function_names[0],
+            function_names[1],
             ["Pareto-optimal", ""],
             axes[1],
-            min_info=min_info,
+            function_names,
+            min_info,
         )
 
         self.__save_plot(experiment_name, "pareto_non_dominated", fig)
@@ -543,6 +564,7 @@ class Experiment:
         mutation_fraction,
     ):
         experiment_name = f"population_size_{population_size}"
+        function_names = [func.__name__ for func in function_list]
 
         optimizer = MultiObjectiveGeneticAlgorithm(
             population_size,
@@ -562,10 +584,20 @@ class Experiment:
         min_info = minimizer.get_minimums_info()
 
         self.__visualizer.plot_pareto_all_points(
-            result_population, experiment_name, lower_bound, upper_bound, min_info
+            result_population,
+            experiment_name,
+            lower_bound,
+            upper_bound,
+            function_names,
+            min_info,
         )
         self.__visualizer.plot_pareto_non_dominated_only(
-            result_population, experiment_name, lower_bound, upper_bound, min_info
+            result_population,
+            experiment_name,
+            lower_bound,
+            upper_bound,
+            function_names,
+            min_info,
         )
         self.__visualizer.results_to_table(result_population, experiment_name)
 
