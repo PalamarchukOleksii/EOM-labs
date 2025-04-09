@@ -71,8 +71,8 @@ def check_non_dominance(population):
     return population
 
 
-def sort_population(population):
-    return sorted(population, key=lambda x: x[1])
+def sort_population(population, sort_index):
+    return sorted(population, key=lambda x: x[sort_index])
 
 
 def rank_select(population):
