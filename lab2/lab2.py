@@ -5,331 +5,350 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 
-SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-LOG_TO_FILE_FLAG = False
-LOG_FILE_NAME = "output_log.txt"
 
-OUTPUT_DIRECTORY = os.path.join(SCRIPT_DIRECTORY, "outputs")
-os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
+class Function:
+    @staticmethod
+    def f3(x, y):
+        return math.sqrt(math.pow(x - 1, 2) + math.pow(y - 7, 4))
 
-LOG_PATH = os.path.join(OUTPUT_DIRECTORY, LOG_FILE_NAME)
-CSV_SAVE_PATH = os.path.join(OUTPUT_DIRECTORY, "comprehensive_results.csv")
-
-POPULATION_SIZES = [30, 60]
-
-FI_SELECTION = 0.1
-FI_CROSSOVER = 0.8
-FI_MUTATION = 0.1
-
-D = 0.5
-
-GEN_LIMIT = 50
-
-LB = [-10, -10]
-UB = [10, 10]
+    @staticmethod
+    def f6(x, y):
+        return math.pow(x + y - 2, 2) + x
 
 
-def f3(x, y):
-    return math.sqrt(math.pow(x - 1, 2) + math.pow(y - 7, 4))
+class MultiObjectiveGeneticAlgorithm:
+    def __init__(
+        self,
+        population_size,
+        lower_bound,
+        upper_bound,
+        generation_limit,
+        function_list,
+        crossover_area_expansion,
+        elite_fraction,
+        crossover_fraction,
+        mutation_fraction,
+    ):
+        self.__population_size = population_size
+        self.__lower_bound = lower_bound
+        self.__upper_bound = upper_bound
+        self.__generation_limit = generation_limit
+        self.__function_list = function_list
+        self.__crossover_area_expansion = crossover_area_expansion
+        self.__elite_fraction = elite_fraction
+        self.__crossover_fraction = crossover_fraction
+        self.__mutation_fraction = mutation_fraction
+        self.__sigma = [
+            (upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))
+        ]
+        self.__population = []
 
+    def __evaluate_functions_at_point(self, point):
+        return [func(*point) for func in self.__function_list]
 
-def f6(x, y):
-    return math.pow(x + y - 2, 2) + x
+    def __generate_population(self):
+        for i in range(self.__population_size):
+            point = []
+            for d in range(len(self.__lower_bound)):
+                r_id = random.uniform(0, 1)
+                coord_id = self.__lower_bound[d] + r_id * (
+                    self.__upper_bound[d] - self.__lower_bound[d]
+                )
+                point.append(coord_id)
 
+            self.__population.append(
+                [
+                    point,
+                    self.__evaluate_functions_at_point(point),
+                    0,
+                ]
+            )
 
-FUNCTION_LIST = [f3, f6]
+    def __check_non_dominance(self):
+        for i in range(len(self.__population)):
+            self.__population[i][2] = 0
 
+        for i in range(len(self.__population)):
+            for j in range(len(self.__population)):
+                if i == j:
+                    continue
 
-def evaluate_functions_at_point(point, function_list=FUNCTION_LIST):
-    values = []
-    for func in function_list:
-        values.append(func(point[0], point[1]))
-    return values
+                p_i = self.__population[i][1]
+                p_j = self.__population[j][1]
+                if all(p_i[k] >= p_j[k] for k in range(len(p_i))) and any(
+                    p_i[k] > p_j[k] for k in range(len(p_i))
+                ):
+                    self.__population[j][2] += 1
 
+    def __sort_population(self):
+        self.__population = sorted(self.__population, key=lambda x: x[2])
 
-def generate_population(
-    lower_bound, upper_bound, population_size, function_list=FUNCTION_LIST
-):
-    population = []
+    def __rank_select(self, population):
+        p = len(population)
+        ranks = [i + 1 for i in range(p)]
 
-    for i in range(population_size):
-        point = []
-        for d in range(len(lower_bound)):
-            r_id = random.uniform(0, 1)
-            coord_id = lower_bound[d] + r_id * (upper_bound[d] - lower_bound[d])
-            point.append(coord_id)
+        probabilities_sum = sum(p - rank + 1 for rank in ranks)
+        probabilities = [(p - rank + 1) / probabilities_sum for rank in ranks]
 
-        population.append(
-            [
-                point,
-                evaluate_functions_at_point(point, function_list),
-                0,
+        selected_index = random.choices(range(p), probabilities)[0]
+
+        return population[selected_index][0]
+
+    def __uniform_crossover_in_natural_coding(self, parent_1, parent_2):
+        new_point = []
+        for i in range(len(parent_1)):
+            beta = random.uniform(
+                -self.__crossover_area_expansion, 1 + self.__crossover_area_expansion
+            )
+
+            new_point_coord = parent_1[i] + beta * (parent_2[i] - parent_1[i])
+            new_point_coord = max(
+                min(new_point_coord, self.__upper_bound[i]), self.__lower_bound[i]
+            )
+
+            new_point.append(new_point_coord)
+
+        return new_point
+
+    def __crossover_population(self, crossover_population):
+        new_population = []
+
+        while len(new_population) < len(crossover_population):
+            parent1 = self.__rank_select(crossover_population)
+            parent2 = self.__rank_select(crossover_population)
+            while parent1 == parent2:
+                parent2 = self.__rank_select(crossover_population)
+
+            child_coords = self.__uniform_crossover_in_natural_coding(parent1, parent2)
+
+            new_population.append(
+                [
+                    child_coords,
+                    self.__evaluate_functions_at_point(child_coords),
+                    0,
+                ]
+            )
+
+        return new_population
+
+    def __mutation_in_natural_coding(self, point):
+        mutated_point = []
+
+        for i in range(len(point)):
+            mutation_value = random.gauss(0, self.__sigma[i])
+
+            new_value = point[i] + mutation_value
+            new_value = max(
+                min(new_value, self.__upper_bound[i]), self.__lower_bound[i]
+            )
+
+            mutated_point.append(new_value)
+
+        return mutated_point
+
+    def __mutate_population(self, mutation_population):
+        mutated_population = []
+
+        for point, _, _ in mutation_population:
+            mutated_coords = self.__mutation_in_natural_coding(point)
+
+            mutated_population.append(
+                [
+                    mutated_coords,
+                    self.__evaluate_functions_at_point(mutated_coords),
+                    0,
+                ]
+            )
+
+        return mutated_population
+
+    def run(self):
+        self.__generate_population()
+        self.__check_non_dominance()
+        self.__sort_population()
+
+        for i in range(self.__generation_limit):
+            elite_count = int(len(self.__population) * self.__elite_fraction)
+            crossover_count = int(len(self.__population) * self.__crossover_fraction)
+
+            elite_points = self.__population[:elite_count]
+            crossover_points = self.__population[
+                elite_count : elite_count + crossover_count
             ]
+            mutation_points = self.__population[elite_count + crossover_count :]
+
+            crossovered_points = self.__crossover_population(
+                crossover_points,
+            )
+            mutated_points = self.__mutate_population(mutation_points)
+
+            self.__population = elite_points + crossovered_points + mutated_points
+            self.__check_non_dominance()
+            self.__sort_population()
+
+        return self.__population
+
+
+class ResultVisualizer:
+    def __init__(self, output_directory):
+        self.__output_directory = output_directory
+        os.makedirs(output_directory, exist_ok=True)
+
+    def plot_pareto_set(self, population, experiment_name, lower_bound, upper_bound):
+        pareto_front = [ind for ind in population if ind[2] == 0]
+        dominated_set = [ind for ind in population if ind[2] != 0]
+
+        pareto_set_x, pareto_set_y = zip(
+            *[(ind[0][0], ind[0][1]) for ind in pareto_front]
+        )
+        dominated_x, dominated_y = zip(
+            *[(ind[0][0], ind[0][1]) for ind in dominated_set]
         )
 
-    return population
-
-
-def check_non_dominance(population):
-    for i in range(len(population)):
-        for j in range(i + 1, len(population)):
-            if (
-                population[i][1][0] >= population[j][1][0]
-                and population[i][1][1] >= population[j][1][1]
-            ):
-                population[i][2] += 1
-            if (
-                population[j][1][0] >= population[i][1][0]
-                and population[j][1][1] >= population[i][1][1]
-            ):
-                population[j][2] += 1
-
-    return population
-
-
-def sort_population(population, sort_index=2):
-    return sorted(population, key=lambda x: x[sort_index])
-
-
-def rank_select(population):
-    p = len(population)
-    ranks = [i + 1 for i in range(p)]
-
-    probabilities_sum = sum(p - rank + 1 for rank in ranks)
-    probabilities = [(p - rank + 1) / probabilities_sum for rank in ranks]
-
-    selected_index = random.choices(range(p), probabilities)[0]
-
-    return population[selected_index][0]
-
-
-def uniform_crossover_in_natural_coding(
-    parent_1, parent_2, d=D, lower_bound=LB, upper_bound=UB
-):
-    new_point = []
-    for i in range(len(parent_1)):
-        beta = random.uniform(-d, 1 + d)
-
-        new_point_coord = parent_1[i] + beta * (parent_2[i] - parent_1[i])
-        new_point_coord = max(min(new_point_coord, upper_bound[i]), lower_bound[i])
-
-        new_point.append(new_point_coord)
-
-    return new_point
-
-
-def crossover_population(
-    population, d=D, lower_bound=LB, upper_bound=UB, function_list=FUNCTION_LIST
-):
-    new_population = []
-
-    while len(new_population) < len(population):
-        parent1 = rank_select(population)
-        parent2 = rank_select(population)
-        while parent1 == parent2:
-            parent2 = rank_select(population)
-
-        child_coords = uniform_crossover_in_natural_coding(
-            parent1, parent2, d, lower_bound, upper_bound
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            pareto_set_x, pareto_set_y, color="blue", label="Non-dominated (Pareto Set)"
         )
+        plt.scatter(dominated_x, dominated_y, color="red", label="Dominated")
 
-        new_population.append(
-            [
-                child_coords,
-                evaluate_functions_at_point(child_coords, function_list),
-                0,
-            ]
+        plt.title(f"Pareto Set - {experiment_name}")
+        plt.xlabel("X")
+        plt.ylabel("Y")
+        plt.legend()
+        plt.grid(True)
+
+        plt.xlim(lower_bound[0], upper_bound[0])
+        plt.ylim(lower_bound[1], upper_bound[1])
+
+        save_path = os.path.join(
+            self.__output_directory, f"pareto_set_{experiment_name}.png"
         )
-
-    return new_population
-
-
-def mutation_in_natural_coding(point, sigma, lower_bound=LB, upper_bound=UB):
-    mutated_point = []
-
-    for i in range(len(point)):
-        mutation_value = random.gauss(0, sigma[i])
-
-        new_value = point[i] + mutation_value
-        new_value = max(min(new_value, upper_bound[i]), lower_bound[i])
-
-        mutated_point.append(new_value)
-
-    return mutated_point
-
-
-def mutate_population(
-    population, sigma, lower_bound=LB, upper_bound=UB, function_list=FUNCTION_LIST
-):
-    mutated_population = []
-
-    for point, _, _ in population:
-        mutated_coords = mutation_in_natural_coding(
-            point, sigma, lower_bound, upper_bound
-        )
-
-        mutated_population.append(
-            [
-                mutated_coords,
-                evaluate_functions_at_point(mutated_coords, function_list),
-                0,
-            ]
-        )
-
-    return mutated_population
-
-
-def plot_pareto_set(
-    population,
-    experiment_name,
-    upper_bound=UB,
-    lower_bound=LB,
-    save_dir=OUTPUT_DIRECTORY,
-):
-    pareto_front = [ind for ind in population if ind[2] == 0]
-    dominated_set = [ind for ind in population if ind[2] != 0]
-
-    pareto_set_x, pareto_set_y = zip(*[(ind[0][0], ind[0][1]) for ind in pareto_front])
-    dominated_x, dominated_y = zip(*[(ind[0][0], ind[0][1]) for ind in dominated_set])
-
-    plt.figure(figsize=(8, 6))
-    plt.scatter(
-        pareto_set_x, pareto_set_y, color="blue", label="Non-dominated (Pareto Set)"
-    )
-    plt.scatter(dominated_x, dominated_y, color="red", label="Dominated")
-
-    plt.title(f"Pareto Set - {experiment_name}")
-    plt.xlabel("X")
-    plt.ylabel("Y")
-    plt.legend()
-    plt.grid(True)
-
-    plt.xlim(lower_bound[0], upper_bound[0])
-    plt.ylim(lower_bound[1], upper_bound[1])
-
-    if save_dir:
-        save_path = os.path.join(save_dir, f"{experiment_name}.png")
         plt.savefig(save_path)
 
-    plt.show()
+        plt.show()
 
+    def plot_pareto_front(self, population, experiment_name):
+        pareto_front = [ind for ind in population if ind[2] == 0]
+        dominated_set = [ind for ind in population if ind[2] != 0]
 
-def plot_pareto_front(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
-    pareto_front = [ind for ind in population if ind[2] == 0]
-    dominated_set = [ind for ind in population if ind[2] != 0]
+        pareto_front_f3, pareto_front_f6 = zip(
+            *[(ind[1][0], ind[1][1]) for ind in pareto_front]
+        )
+        dominated_f3, dominated_f6 = zip(
+            *[(ind[1][0], ind[1][1]) for ind in dominated_set]
+        )
 
-    pareto_front_f3, pareto_front_f6 = zip(
-        *[(ind[1][0], ind[1][1]) for ind in pareto_front]
-    )
-    dominated_f3, dominated_f6 = zip(*[(ind[1][0], ind[1][1]) for ind in dominated_set])
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            pareto_front_f3,
+            pareto_front_f6,
+            color="blue",
+            label="Non-dominated (Pareto Front)",
+        )
+        plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
 
-    plt.figure(figsize=(8, 6))
-    plt.scatter(
-        pareto_front_f3,
-        pareto_front_f6,
-        color="blue",
-        label="Non-dominated (Pareto Front)",
-    )
-    plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
+        plt.title(f"Pareto Front - {experiment_name}")
+        plt.xlabel("F3")
+        plt.ylabel("F6")
+        plt.legend()
+        plt.grid(True)
 
-    plt.title(f"Pareto Front - {experiment_name}")
-    plt.xlabel("F3")
-    plt.ylabel("F6")
-    plt.legend()
-    plt.grid(True)
-
-    if save_dir:
-        save_path = os.path.join(save_dir, f"{experiment_name}.png")
+        save_path = os.path.join(
+            self.__output_directory, f"pareto_front_{experiment_name}.png"
+        )
         plt.savefig(save_path)
 
-    plt.show()
+        plt.show()
 
+    def results_to_table(self, population, experiment_name):
+        data = []
 
-def results_to_table(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
-    data = []
+        for item in population:
+            x, y = item[0]
+            f3_value, f6_value = item[1]
+            dominance = item[2]
+            data.append([x, y, f3_value, f6_value, dominance])
 
-    for item in population:
-        x, y = item[0]
-        f3_value, f6_value = item[1]
-        dominance = item[2]
-        data.append([x, y, f3_value, f6_value, dominance])
+        df = pd.DataFrame(data, columns=["x", "y", "f3_value", "f6_value", "dominance"])
 
-    df = pd.DataFrame(data, columns=["x", "y", "f3_value", "f6_value", "dominance"])
-
-    if save_dir:
-        save_path = os.path.join(save_dir, f"{experiment_name}_results.csv")
+        save_path = os.path.join(
+            self.__output_directory, f"results_{experiment_name}.csv"
+        )
         df.to_csv(save_path, index=False)
 
-    print(f"{experiment_name} Results:")
-    print(df)
+        print(f"{experiment_name} Results:")
+        print(df)
 
 
-def run_experiment(
-    population_size,
-    lower_bound=LB,
-    upper_bound=UB,
-    generation_limit=GEN_LIMIT,
-    function_list=FUNCTION_LIST,
-    crossover_area_expansion=D,
-    elite_fraction=FI_SELECTION,
-    crossover_fraction=FI_CROSSOVER,
-    mutation_fraction=FI_MUTATION,
-):
-    population = generate_population(
-        lower_bound, upper_bound, population_size, function_list
-    )
-    checked_population = check_non_dominance(population)
-    sorted_population = sort_population(checked_population, 2)
+class OutputLogger:
+    def __init__(
+        self,
+        log_to_file_flag,
+        output_directory,
+        log_filename,
+    ):
+        self.__output_directory = output_directory
+        self.__log_to_file_flag = log_to_file_flag
+        self.__log_path = os.path.join(output_directory, log_filename)
+        self.__original_stdout = sys.stdout
+        self.__log_file = None
 
-    sigma = [(upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))]
+    def start_logging(self):
+        if not self.__log_to_file_flag:
+            print("Logging to file is disabled.")
+            return
 
-    for i in range(generation_limit):
-        elite_count = int(len(sorted_population) * elite_fraction)
-        crossover_count = int(len(sorted_population) * crossover_fraction)
+        if self.__log_file:
+            print("Logging has already started.")
+            return
 
-        elite_points = sorted_population[:elite_count]
-        crossover_points = sorted_population[
-            elite_count : elite_count + crossover_count
-        ]
-        mutation_points = sorted_population[elite_count + crossover_count :]
+        print(f"Logging output to {self.__log_path}...")
+        os.makedirs(self.__output_directory, exist_ok=True)
+        self.__log_file = open(self.__log_path, "w")
+        sys.stdout = self.__log_file
 
-        crossovered_points = crossover_population(
-            crossover_points,
-            crossover_area_expansion,
-            lower_bound,
-            upper_bound,
-            function_list,
+    def stop_logging(self):
+        if not self.__log_to_file_flag:
+            print("Logging to file is disabled.")
+            return
+
+        if not self.__log_file:
+            print("Logging is not started yet.")
+            return
+
+        self.__log_file.close()
+        self.__log_file = None
+        sys.stdout = self.__original_stdout
+        print(f"All output is logged to {self.__log_path}")
+
+
+class Experiment:
+    def __init__(self, log_to_file_flag, output_directory, log_filename):
+        self.__output_directory = output_directory
+        os.makedirs(output_directory, exist_ok=True)
+
+        self.__logger = OutputLogger(
+            log_to_file_flag, self.__output_directory, log_filename
         )
-        mutated_points = mutate_population(
-            mutation_points, sigma, lower_bound, upper_bound, function_list
-        )
 
-        population = elite_points + crossovered_points + mutated_points
-        checked_population = check_non_dominance(population)
-        sorted_population = sort_population(checked_population, 2)
+        self.__visualizer = ResultVisualizer(output_directory)
 
-    return sorted_population
+    def _run_experiment(
+        self,
+        population_size,
+        lower_bound,
+        upper_bound,
+        generation_limit,
+        function_list,
+        crossover_area_expansion,
+        elite_fraction,
+        crossover_fraction,
+        mutation_fraction,
+    ):
+        experiment_name = f"population_size_{population_size}"
 
-
-def test_params_on_experiments(
-    population_sizes=POPULATION_SIZES,
-    lower_bound=LB,
-    upper_bound=UB,
-    generation_limit=GEN_LIMIT,
-    function_list=FUNCTION_LIST,
-    crossover_area_expansion=D,
-    elite_fraction=FI_SELECTION,
-    crossover_fraction=FI_CROSSOVER,
-    mutation_fraction=FI_MUTATION,
-    save_directory=OUTPUT_DIRECTORY,
-):
-    for p in population_sizes:
-        print(f"\nRunning Experiments with population size: {p}\n")
-
-        experiment_name = f"population_size_{p}"
-
-        result_population = run_experiment(
-            p,
+        optimizer = MultiObjectiveGeneticAlgorithm(
+            population_size,
             lower_bound,
             upper_bound,
             generation_limit,
@@ -340,45 +359,69 @@ def test_params_on_experiments(
             mutation_fraction,
         )
 
-        plot_pareto_set(
-            result_population, experiment_name, upper_bound, lower_bound, save_directory
+        result_population = optimizer.run()
+
+        self.__visualizer.plot_pareto_set(
+            result_population, experiment_name, lower_bound, upper_bound
         )
-        plot_pareto_front(result_population, experiment_name, save_directory)
-        results_to_table(result_population, experiment_name, save_directory)
+        self.__visualizer.plot_pareto_front(result_population, experiment_name)
+        self.__visualizer.results_to_table(result_population, experiment_name)
 
-
-class OutputLogger:
-    def __init__(
+    def run_multiple_experiments(
         self,
-        log_to_file=LOG_TO_FILE_FLAG,
-        output_directory=OUTPUT_DIRECTORY,
-        log_filename=LOG_FILE_NAME,
+        population_sizes,
+        lower_bound,
+        upper_bound,
+        generation_limit,
+        function_list,
+        crossover_area_expansion,
+        elite_fraction,
+        crossover_fraction,
+        mutation_fraction,
     ):
-        self.output_directory = output_directory
-        self.log_to_file = log_to_file
-        self.log_filename = log_filename
-        self.log_path = os.path.join(output_directory, log_filename)
-        self.original_stdout = sys.stdout
-        self.log_file = None
+        self.__logger.start_logging()
 
-    def start_logging(self):
-        print(f"Logging output to {self.log_path}...")
-        os.makedirs(self.output_directory, exist_ok=True)
-        self.log_file = open(self.log_path, "w")
-        sys.stdout = self.log_file
+        for p in population_sizes:
+            self._run_experiment(
+                p,
+                lower_bound,
+                upper_bound,
+                generation_limit,
+                function_list,
+                crossover_area_expansion,
+                elite_fraction,
+                crossover_fraction,
+                mutation_fraction,
+            )
 
-    def stop_logging(self):
-        if self.log_to_file and self.log_file:
-            self.log_file.close()
-            sys.stdout = self.original_stdout
-            print(f"All output is logged to {self.log_path}")
+        self.__logger.stop_logging()
 
 
 if __name__ == "__main__":
-    logger = OutputLogger()
+    SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+    OUTPUT_DIRECTORY = os.path.join(SCRIPT_DIRECTORY, "outputs")
+    LOG_TO_FILE_FLAG = False
+    LOG_FILENAME = "log.txt"
 
-    logger.start_logging()
+    POPULATION_SIZES = [30, 60]
+    LOWER_BOUND = [-10, -10]
+    UPPER_BOUND = [10, 10]
+    GEN_LIMIT = 50
+    FUNCTION_LIST = [Function.f3, Function.f6]
+    CROSSOVER_AREA_EXPANSION = 0.5
+    FI_SELECTION = 0.1
+    FI_CROSSOVER = 0.8
+    FI_MUTATION = 0.1
 
-    test_params_on_experiments()
-
-    logger.stop_logging()
+    experiment = Experiment(LOG_TO_FILE_FLAG, OUTPUT_DIRECTORY, LOG_FILENAME)
+    experiment.run_multiple_experiments(
+        POPULATION_SIZES,
+        LOWER_BOUND,
+        UPPER_BOUND,
+        GEN_LIMIT,
+        FUNCTION_LIST,
+        CROSSOVER_AREA_EXPANSION,
+        FI_SELECTION,
+        FI_CROSSOVER,
+        FI_MUTATION,
+    )
