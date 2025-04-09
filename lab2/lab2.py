@@ -35,7 +35,7 @@ def f6(x, y):
     return math.pow(x + y - 2, 2) + x
 
 
-def generate_population(lower_bound, upper_bound, population_size, function):
+def generate_population(lower_bound, upper_bound, population_size, functions):
     population = []
 
     for i in range(population_size):
@@ -45,10 +45,28 @@ def generate_population(lower_bound, upper_bound, population_size, function):
             coord_id = lower_bound[d] + r_id * (upper_bound[d] - lower_bound[d])
             point.append(coord_id)
 
-        func_value = function(point[0], point[1])
-        population.append((point, func_value))
+        funcs_values = []
+        for func in functions:
+            funcs_values.append(func(point[0], point[1]))
+
+        population.append((point, funcs_values, 0))
 
     return population
+
+
+def check_non_dominance(population):
+    for i in range(len(population)):
+        for j in range(i, len(population)):
+            if (
+                population[i][2][1] >= population[j][2][1]
+                and population[i][2][2] >= population[j][2][2]
+            ):
+                population[i][3] += 1
+            if (
+                population[j][2][1] >= population[i][2][1]
+                and population[j][2][2] >= population[i][2][2]
+            ):
+                population[j][3] += 1
 
 
 def sort_population(population):
@@ -186,14 +204,19 @@ if __name__ == "__main__":
     results_data = []
 
     for P in POPULATION_SIZES:
-        for param_set in PARAMETERS_SETS:
-            print(
-                f"\nRunning experiments for Population Size {P} with {param_set['name']}:"
-            )
+        print(
+            f"\nRunning Experiments with Parameters:\n"
+            f"- Population Size: {P}\n"
+            f"- Fi Selection: {FI_SELECTION}\n"
+            f"- Fi Crossover: {FI_CROSSOVER}\n"
+            f"- Fi Mutation: {FI_MUTATION}\n"
+        )
 
-            experiment_name = f"p{P}_fiElite{param_set['fi_sel']}_fiCross{param_set['fi_cross']}_fiMut{param_set['fi_mut']}"
+        experiment_name = (
+            f"p{P}_fiSel{FI_SELECTION}_fiCross{FI_CROSSOVER}_fiMut{FI_MUTATION}"
+        )
 
-            # TODO: add call of run experimnt func
+        # TODO: add call of run experimnt func
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
