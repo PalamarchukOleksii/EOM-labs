@@ -2,6 +2,8 @@ import random
 import math
 import os
 import sys
+import matplotlib.pyplot as plt
+import pandas as pd
 
 SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 LOG_TO_FILE_FLAG = False
@@ -38,14 +40,16 @@ def f6(x, y):
 FUNCTION_LIST = [f3, f6]
 
 
-def evaluate_functions_at_point(point, function_list):
+def evaluate_functions_at_point(point, function_list=FUNCTION_LIST):
     values = []
     for func in function_list:
         values.append(func(point[0], point[1]))
     return values
 
 
-def generate_population(lower_bound, upper_bound, population_size, function_list):
+def generate_population(
+    lower_bound, upper_bound, population_size, function_list=FUNCTION_LIST
+):
     population = []
 
     for i in range(population_size):
@@ -83,7 +87,7 @@ def check_non_dominance(population):
     return population
 
 
-def sort_population(population, sort_index):
+def sort_population(population, sort_index=2):
     return sorted(population, key=lambda x: x[sort_index])
 
 
@@ -100,7 +104,7 @@ def rank_select(population):
 
 
 def uniform_crossover_in_natural_coding(
-    parent_1, parent_2, d, lower_bound, upper_bound
+    parent_1, parent_2, d=D, lower_bound=LB, upper_bound=UB
 ):
     new_point = []
     for i in range(len(parent_1)):
@@ -114,7 +118,9 @@ def uniform_crossover_in_natural_coding(
     return new_point
 
 
-def crossover_population(population, d, lower_bound, upper_bound, function_list):
+def crossover_population(
+    population, d=D, lower_bound=LB, upper_bound=UB, function_list=FUNCTION_LIST
+):
     new_population = []
 
     while len(new_population) < len(population):
@@ -138,7 +144,7 @@ def crossover_population(population, d, lower_bound, upper_bound, function_list)
     return new_population
 
 
-def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
+def mutation_in_natural_coding(point, sigma, lower_bound=LB, upper_bound=UB):
     mutated_point = []
 
     for i in range(len(point)):
@@ -152,12 +158,14 @@ def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
     return mutated_point
 
 
-def mutate_population(population, lower_bound, upper_bound, sigma, function_list):
+def mutate_population(
+    population, sigma, lower_bound=LB, upper_bound=UB, function_list=FUNCTION_LIST
+):
     mutated_population = []
 
     for point, _, _ in population:
         mutated_coords = mutation_in_natural_coding(
-            point, lower_bound, upper_bound, sigma
+            point, sigma, lower_bound, upper_bound
         )
 
         mutated_population.append(
@@ -171,16 +179,101 @@ def mutate_population(population, lower_bound, upper_bound, sigma, function_list
     return mutated_population
 
 
+def plot_pareto_front(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
+    pareto_front = [ind for ind in population if ind[2] == 0]
+    dominated_set = [ind for ind in population if ind[2] != 0]
+
+    pareto_front_f3, pareto_front_f6 = zip(
+        *[(ind[1][0], ind[1][1]) for ind in pareto_front]
+    )
+    dominated_f3, dominated_f6 = zip(*[(ind[1][0], ind[1][1]) for ind in dominated_set])
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(
+        pareto_front_f3,
+        pareto_front_f6,
+        color="blue",
+        label="Non-dominated (Pareto Front)",
+    )
+    plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
+
+    plt.title(f"Pareto Front - {experiment_name}")
+    plt.xlabel("F3")
+    plt.ylabel("F6")
+    plt.legend()
+    plt.grid(True)
+
+    if save_dir:
+        save_path = os.path.join(save_dir, f"{experiment_name}.png")
+        plt.savefig(save_path)
+
+    plt.show()
+
+
+def plot_pareto_set(
+    population,
+    experiment_name,
+    upper_bound=UB,
+    lower_bound=LB,
+    save_dir=OUTPUT_DIRECTORY,
+):
+    pareto_front = [ind for ind in population if ind[2] == 0]
+    dominated_set = [ind for ind in population if ind[2] != 0]
+
+    pareto_set_x, pareto_set_y = zip(*[(ind[0][0], ind[0][1]) for ind in pareto_front])
+    dominated_x, dominated_y = zip(*[(ind[0][0], ind[0][1]) for ind in dominated_set])
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(
+        pareto_set_x, pareto_set_y, color="blue", label="Non-dominated (Pareto Set)"
+    )
+    plt.scatter(dominated_x, dominated_y, color="red", label="Dominated")
+
+    plt.title(f"Pareto Set - {experiment_name}")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.legend()
+    plt.grid(True)
+
+    plt.xlim(lower_bound[0], upper_bound[0])
+    plt.ylim(lower_bound[1], upper_bound[1])
+
+    if save_dir:
+        save_path = os.path.join(save_dir, f"{experiment_name}.png")
+        plt.savefig(save_path)
+
+    plt.show()
+
+
+def results_to_table(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
+    data = []
+
+    for item in population:
+        x, y = item[0]
+        f3_value, f6_value = item[1]
+        dominance = item[2]
+        data.append([x, y, f3_value, f6_value, dominance])
+
+    df = pd.DataFrame(data, columns=["x", "y", "f3_value", "f6_value", "dominance"])
+
+    if save_dir:
+        save_path = os.path.join(save_dir, f"{experiment_name}_results.csv")
+        df.to_csv(save_path, index=False)
+
+    print(f"{experiment_name} Results:")
+    print(df)
+
+
 def run_experiment(
     population_size,
-    lower_bound,
-    upper_bound,
-    generation_limit,
-    function_list,
-    crossover_area_expansion,
-    elite_fraction,
-    crossover_fraction,
-    mutation_fraction,
+    lower_bound=LB,
+    upper_bound=UB,
+    generation_limit=GEN_LIMIT,
+    function_list=FUNCTION_LIST,
+    crossover_area_expansion=D,
+    elite_fraction=FI_SELECTION,
+    crossover_fraction=FI_CROSSOVER,
+    mutation_fraction=FI_MUTATION,
 ):
     population = generate_population(
         lower_bound, upper_bound, population_size, function_list
@@ -208,7 +301,7 @@ def run_experiment(
             function_list,
         )
         mutated_points = mutate_population(
-            mutation_points, lower_bound, upper_bound, sigma, function_list
+            mutation_points, sigma, lower_bound, upper_bound, function_list
         )
 
         population = elite_points + crossovered_points + mutated_points
@@ -218,44 +311,55 @@ def run_experiment(
     return sorted_population
 
 
+def test_params_on_experiments(
+    population_sizes=POPULATION_SIZES,
+    lower_bound=LB,
+    upper_bound=UB,
+    generation_limit=GEN_LIMIT,
+    function_list=FUNCTION_LIST,
+    crossover_area_expansion=D,
+    elite_fraction=FI_SELECTION,
+    crossover_fraction=FI_CROSSOVER,
+    mutation_fraction=FI_MUTATION,
+    save_directory=OUTPUT_DIRECTORY,
+):
+    for p in population_sizes:
+        print(f"\nRunning Experiments with population size: {p}\n")
+
+        experiment_name = f"population_size_{p}"
+
+        result_population = run_experiment(
+            p,
+            lower_bound,
+            upper_bound,
+            generation_limit,
+            function_list,
+            crossover_area_expansion,
+            elite_fraction,
+            crossover_fraction,
+            mutation_fraction,
+        )
+
+        plot_pareto_set(
+            result_population, experiment_name, upper_bound, lower_bound, save_directory
+        )
+        plot_pareto_front(
+            result_population, experiment_name, upper_bound, lower_bound, save_directory
+        )
+        results_to_table(result_population, experiment_name, save_directory)
+
+
 if __name__ == "__main__":
     original_stdout = sys.stdout
-    log_file = open(LOG_PATH, "w")
 
     if LOG_TO_FILE_FLAG:
+        log_file = open(LOG_PATH, "w")
         print(f"Logging output to {LOG_PATH}...")
         sys.stdout = log_file
     else:
-        log_file.close()
+        log_file = None
 
-    results_data = []
-
-    for P in POPULATION_SIZES:
-        print(
-            f"\nRunning Experiments with Parameters:\n"
-            f"- Population Size: {P}\n"
-            f"- Fi Selection: {FI_SELECTION}\n"
-            f"- Fi Crossover: {FI_CROSSOVER}\n"
-            f"- Fi Mutation: {FI_MUTATION}\n"
-        )
-
-        experiment_name = (
-            f"p{P}_fiSel{FI_SELECTION}_fiCross{FI_CROSSOVER}_fiMut{FI_MUTATION}"
-        )
-
-        result_population = run_experiment(
-            P,
-            LB,
-            UB,
-            GEN_LIMIT,
-            FUNCTION_LIST,
-            D,
-            FI_SELECTION,
-            FI_CROSSOVER,
-            FI_MUTATION,
-        )
-
-        print(result_population)
+    test_params_on_experiments()
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
