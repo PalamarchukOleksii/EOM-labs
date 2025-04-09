@@ -333,7 +333,7 @@ class Experiment:
 
         self.__visualizer = ResultVisualizer(output_directory)
 
-    def _run_experiment(
+    def __run_experiment(
         self,
         population_size,
         lower_bound,
@@ -382,7 +382,7 @@ class Experiment:
         self.__logger.start_logging()
 
         for p in population_sizes:
-            self._run_experiment(
+            self.__run_experiment(
                 p,
                 lower_bound,
                 upper_bound,
