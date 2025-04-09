@@ -35,7 +35,17 @@ def f6(x, y):
     return math.pow(x + y - 2, 2) + x
 
 
-def generate_population(lower_bound, upper_bound, population_size, functions):
+FUNCTION_LIST = [f3, f6]
+
+
+def evaluate_functions_at_point(point, function_list):
+    values = []
+    for func in function_list:
+        values.append(func(point[0], point[1]))
+    return values
+
+
+def generate_population(lower_bound, upper_bound, population_size, function_list):
     population = []
 
     for i in range(population_size):
@@ -45,11 +55,13 @@ def generate_population(lower_bound, upper_bound, population_size, functions):
             coord_id = lower_bound[d] + r_id * (upper_bound[d] - lower_bound[d])
             point.append(coord_id)
 
-        funcs_values = []
-        for func in functions:
-            funcs_values.append(func(point[0], point[1]))
-
-        population.append((point, funcs_values, 0))
+        population.append(
+            [
+                point,
+                evaluate_functions_at_point(point, function_list),
+                0,
+            ]
+        )
 
     return population
 
@@ -102,7 +114,7 @@ def uniform_crossover_in_natural_coding(
     return new_point
 
 
-def crossover_population(population, d, lower_bound, upper_bound, function):
+def crossover_population(population, d, lower_bound, upper_bound, function_list):
     new_population = []
 
     while len(new_population) < len(population):
@@ -115,8 +127,13 @@ def crossover_population(population, d, lower_bound, upper_bound, function):
             parent1, parent2, d, lower_bound, upper_bound
         )
 
-        child_value = function(child_coords[0], child_coords[1])
-        new_population.append((child_coords, child_value))
+        new_population.append(
+            [
+                child_coords,
+                evaluate_functions_at_point(child_coords, function_list),
+                0,
+            ]
+        )
 
     return new_population
 
@@ -135,15 +152,21 @@ def mutation_in_natural_coding(point, lower_bound, upper_bound, sigma):
     return mutated_point
 
 
-def mutate_population(population, lower_bound, upper_bound, sigma, function):
+def mutate_population(population, lower_bound, upper_bound, sigma, function_list):
     mutated_population = []
 
-    for point, _ in population:
+    for point, _, _ in population:
         mutated_coords = mutation_in_natural_coding(
             point, lower_bound, upper_bound, sigma
         )
-        mutated_value = function(mutated_coords[0], mutated_coords[1])
-        mutated_population.append((mutated_coords, mutated_value))
+
+        mutated_population.append(
+            [
+                mutated_coords,
+                evaluate_functions_at_point(mutated_coords, function_list),
+                0,
+            ]
+        )
 
     return mutated_population
 
@@ -153,16 +176,17 @@ def run_experiment(
     lower_bound,
     upper_bound,
     generation_limit,
-    function,
+    function_list,
     crossover_area_expansion,
     elite_fraction,
     crossover_fraction,
     mutation_fraction,
 ):
     population = generate_population(
-        lower_bound, upper_bound, population_size, function
+        lower_bound, upper_bound, population_size, function_list
     )
-    sorted_population = sort_population(population)
+    checked_population = check_non_dominance(population)
+    sorted_population = sort_population(checked_population, 2)
 
     sigma = [(upper_bound[i] - lower_bound[i]) / 10 for i in range(len(lower_bound))]
 
@@ -181,14 +205,15 @@ def run_experiment(
             crossover_area_expansion,
             lower_bound,
             upper_bound,
-            function,
+            function_list,
         )
         mutated_points = mutate_population(
-            mutation_points, lower_bound, upper_bound, sigma, function
+            mutation_points, lower_bound, upper_bound, sigma, function_list
         )
 
         population = elite_points + crossovered_points + mutated_points
-        sorted_population = sort_population(population)
+        checked_population = check_non_dominance(population)
+        sorted_population = sort_population(checked_population, 2)
 
     return sorted_population
 
@@ -218,7 +243,19 @@ if __name__ == "__main__":
             f"p{P}_fiSel{FI_SELECTION}_fiCross{FI_CROSSOVER}_fiMut{FI_MUTATION}"
         )
 
-        # TODO: add call of run experimnt func
+        result_population = run_experiment(
+            P,
+            LB,
+            UB,
+            GEN_LIMIT,
+            FUNCTION_LIST,
+            D,
+            FI_SELECTION,
+            FI_CROSSOVER,
+            FI_MUTATION,
+        )
+
+        print(result_population)
 
     if LOG_TO_FILE_FLAG:
         log_file.close()
