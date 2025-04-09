@@ -4,6 +4,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.optimize import minimize
 
 
 class Function:
@@ -189,85 +190,281 @@ class MultiObjectiveGeneticAlgorithm:
         return self.__population
 
 
+class FunctionsMinimumsInfo:
+    def __init__(self, lower_bound, upper_bound, functions_list):
+        self.__lower_bound = lower_bound
+        self.__upper_bound = upper_bound
+        self.__functions_list = functions_list
+
+    def __find_minimum(self, func, initial_guess=None):
+        def wrapped_func(point):
+            return func(*point)
+
+        if initial_guess is None:
+            initial_guess = [
+                random.uniform(self.__lower_bound[i], self.__upper_bound[i])
+                for i in range(len(self.__lower_bound))
+            ]
+
+        bounds = [
+            (self.__lower_bound[i], self.__upper_bound[i])
+            for i in range(len(self.__lower_bound))
+        ]
+
+        result = minimize(wrapped_func, initial_guess, bounds=bounds)
+
+        min_point = result.x
+        min_value = result.fun
+
+        return min_point, min_value
+
+    def get_minimums_info(self):
+        min_info = {}
+        min_info["func_count"] = len(self.__functions_list)
+
+        for i, func in enumerate(self.__functions_list):
+            min_point, min_value = self.__find_minimum(func)
+            min_info[f"func{i+1}_min_point"] = min_point
+            min_info[f"func{i+1}_min_value"] = min_value
+
+            for j, other_func in enumerate(self.__functions_list):
+                if i != j:
+                    other_value_at_min = other_func(*min_point)
+                    min_info[f"func{i+1}_value_at_func{j+1}_min"] = other_value_at_min
+
+        return min_info
+
+
 class ResultVisualizer:
     def __init__(self, output_directory):
         self.__output_directory = output_directory
         os.makedirs(output_directory, exist_ok=True)
+        self.__min_colors = [
+            "green",
+            "purple",
+            "orange",
+            "cyan",
+            "magenta",
+            "lime",
+            "brown",
+            "olive",
+        ]
 
-    def plot_pareto_set(self, population, experiment_name, lower_bound, upper_bound):
+    def __extract_data(self, population):
         pareto_front = [ind for ind in population if ind[2] == 0]
         dominated_set = [ind for ind in population if ind[2] != 0]
 
-        pareto_set_x, pareto_set_y = zip(
-            *[(ind[0][0], ind[0][1]) for ind in pareto_front]
+        pareto_set_x, pareto_set_y = (
+            zip(*[(ind[0][0], ind[0][1]) for ind in pareto_front])
+            if pareto_front
+            else ([], [])
         )
-        dominated_x, dominated_y = zip(
-            *[(ind[0][0], ind[0][1]) for ind in dominated_set]
+        dominated_x, dominated_y = (
+            zip(*[(ind[0][0], ind[0][1]) for ind in dominated_set])
+            if dominated_set
+            else ([], [])
         )
 
-        plt.figure(figsize=(8, 6))
-        plt.scatter(
-            pareto_set_x, pareto_set_y, color="blue", label="Non-dominated (Pareto Set)"
+        pareto_f3, pareto_f6 = (
+            zip(*[(ind[1][0], ind[1][1]) for ind in pareto_front])
+            if pareto_front
+            else ([], [])
         )
-        plt.scatter(dominated_x, dominated_y, color="red", label="Dominated")
+        dominated_f3, dominated_f6 = (
+            zip(*[(ind[1][0], ind[1][1]) for ind in dominated_set])
+            if dominated_set
+            else ([], [])
+        )
 
-        plt.title(f"Pareto Set - {experiment_name}")
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.legend()
-        plt.grid(True)
+        return (
+            pareto_set_x,
+            pareto_set_y,
+            dominated_x,
+            dominated_y,
+            pareto_f3,
+            pareto_f6,
+            dominated_f3,
+            dominated_f6,
+        )
 
-        plt.xlim(lower_bound[0], upper_bound[0])
-        plt.ylim(lower_bound[1], upper_bound[1])
+    def __plot_pareto_set(
+        self,
+        x,
+        y,
+        title,
+        xlabel,
+        ylabel,
+        legend_labels,
+        lower_bound,
+        upper_bound,
+        ax,
+        min_info=None,
+    ):
+        ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
+        ax.scatter(x[1], y[1], color="red", label=legend_labels[1])
 
+        if min_info:
+            for i in range(min_info["func_count"]):
+                color = self.__min_colors[i % len(self.__min_colors)]
+                ax.scatter(
+                    min_info[f"func{i+1}_min_point"][0],
+                    min_info[f"func{i+1}_min_point"][1],
+                    color=color,
+                    marker="x",
+                    s=100,
+                    label=f"Func {i+1} Min",
+                )
+
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.legend()
+        ax.grid(True)
+
+        if lower_bound is not None and upper_bound is not None:
+            ax.set_xlim(lower_bound[0], upper_bound[0])
+            ax.set_ylim(lower_bound[1], upper_bound[1])
+
+    def __plot_pareto_front(
+        self,
+        x,
+        y,
+        title,
+        xlabel,
+        ylabel,
+        legend_labels,
+        ax,
+        min_info=None,
+    ):
+        ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
+        ax.scatter(x[1], y[1], color="red", label=legend_labels[1])
+
+        if min_info:
+            for i in range(min_info["func_count"]):
+                color = self.__min_colors[i % len(self.__min_colors)]
+
+                if i == 0:
+                    ax.scatter(
+                        min_info[f"func{i+1}_min_value"],
+                        min_info[f"func{i+1}_value_at_func2_min"],
+                        color=color,
+                        marker="x",
+                        s=100,
+                        label=f"Func {i+1} Min Value",
+                    )
+                elif i == 1:
+                    ax.scatter(
+                        min_info[f"func{i+1}_value_at_func1_min"],
+                        min_info[f"func{i+1}_min_value"],
+                        color=color,
+                        marker="x",
+                        s=100,
+                        label=f"Func {i+1} Min Value",
+                    )
+
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.legend()
+        ax.grid(True)
+
+    def __save_plot(self, experiment_name, plot_type, fig):
         save_path = os.path.join(
-            self.__output_directory, f"pareto_set_{experiment_name}.png"
+            self.__output_directory, f"{plot_type}_{experiment_name}.png"
         )
+        plt.tight_layout()
         plt.savefig(save_path)
-
         plt.show()
 
-    def plot_pareto_front(self, population, experiment_name):
-        pareto_front = [ind for ind in population if ind[2] == 0]
-        dominated_set = [ind for ind in population if ind[2] != 0]
+    def plot_pareto_all_points(
+        self, population, experiment_name, lower_bound, upper_bound, min_info=None
+    ):
+        (
+            pareto_set_x,
+            pareto_set_y,
+            dominated_x,
+            dominated_y,
+            pareto_f3,
+            pareto_f6,
+            dominated_f3,
+            dominated_f6,
+        ) = self.__extract_data(population)
 
-        pareto_front_f3, pareto_front_f6 = zip(
-            *[(ind[1][0], ind[1][1]) for ind in pareto_front]
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+        self.__plot_pareto_set(
+            [pareto_set_x, dominated_x],
+            [pareto_set_y, dominated_y],
+            f"Pareto Set - All Points - {experiment_name}",
+            "X",
+            "Y",
+            ["Pareto-optimal", "Dominated"],
+            lower_bound,
+            upper_bound,
+            axes[0],
+            min_info=min_info,
         )
-        dominated_f3, dominated_f6 = zip(
-            *[(ind[1][0], ind[1][1]) for ind in dominated_set]
+
+        self.__plot_pareto_front(
+            [pareto_f3, dominated_f3],
+            [pareto_f6, dominated_f6],
+            f"Pareto Front - All Points - {experiment_name}",
+            "F3",
+            "F6",
+            ["Pareto-optimal", "Dominated"],
+            axes[1],
+            min_info=min_info,
         )
 
-        plt.figure(figsize=(8, 6))
-        plt.scatter(
-            pareto_front_f3,
-            pareto_front_f6,
-            color="blue",
-            label="Non-dominated (Pareto Front)",
+        self.__save_plot(experiment_name, "pareto_all_points", fig)
+
+    def plot_pareto_non_dominated_only(
+        self, population, experiment_name, lower_bound, upper_bound, min_info=None
+    ):
+        (
+            pareto_set_x,
+            pareto_set_y,
+            _,
+            _,
+            pareto_f3,
+            pareto_f6,
+            _,
+            _,
+        ) = self.__extract_data(population)
+
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+        self.__plot_pareto_set(
+            [pareto_set_x, []],
+            [pareto_set_y, []],
+            f"Pareto Set - Non-Dominated - {experiment_name}",
+            "X",
+            "Y",
+            ["Pareto-optimal", ""],
+            lower_bound,
+            upper_bound,
+            axes[0],
+            min_info=min_info,
         )
-        plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
 
-        plt.title(f"Pareto Front - {experiment_name}")
-        plt.xlabel("F3")
-        plt.ylabel("F6")
-        plt.legend()
-        plt.grid(True)
-
-        save_path = os.path.join(
-            self.__output_directory, f"pareto_front_{experiment_name}.png"
+        self.__plot_pareto_front(
+            [pareto_f3, []],
+            [pareto_f6, []],
+            f"Pareto Front - Non-Dominated - {experiment_name}",
+            "F3",
+            "F6",
+            ["Pareto-optimal", ""],
+            axes[1],
+            min_info=min_info,
         )
-        plt.savefig(save_path)
 
-        plt.show()
+        self.__save_plot(experiment_name, "pareto_non_dominated", fig)
 
     def results_to_table(self, population, experiment_name):
-        data = []
-
-        for item in population:
-            x, y = item[0]
-            f3_value, f6_value = item[1]
-            dominance = item[2]
-            data.append([x, y, f3_value, f6_value, dominance])
+        data = [
+            [item[0][0], item[0][1], item[1][0], item[1][1], item[2]]
+            for item in population
+        ]
 
         df = pd.DataFrame(data, columns=["x", "y", "f3_value", "f6_value", "dominance"])
 
@@ -361,10 +558,15 @@ class Experiment:
 
         result_population = optimizer.run()
 
-        self.__visualizer.plot_pareto_set(
-            result_population, experiment_name, lower_bound, upper_bound
+        minimizer = FunctionsMinimumsInfo(lower_bound, upper_bound, function_list)
+        min_info = minimizer.get_minimums_info()
+
+        self.__visualizer.plot_pareto_all_points(
+            result_population, experiment_name, lower_bound, upper_bound, min_info
         )
-        self.__visualizer.plot_pareto_front(result_population, experiment_name)
+        self.__visualizer.plot_pareto_non_dominated_only(
+            result_population, experiment_name, lower_bound, upper_bound, min_info
+        )
         self.__visualizer.results_to_table(result_population, experiment_name)
 
     def run_multiple_experiments(
