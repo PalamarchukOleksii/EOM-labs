@@ -179,37 +179,6 @@ def mutate_population(
     return mutated_population
 
 
-def plot_pareto_front(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
-    pareto_front = [ind for ind in population if ind[2] == 0]
-    dominated_set = [ind for ind in population if ind[2] != 0]
-
-    pareto_front_f3, pareto_front_f6 = zip(
-        *[(ind[1][0], ind[1][1]) for ind in pareto_front]
-    )
-    dominated_f3, dominated_f6 = zip(*[(ind[1][0], ind[1][1]) for ind in dominated_set])
-
-    plt.figure(figsize=(8, 6))
-    plt.scatter(
-        pareto_front_f3,
-        pareto_front_f6,
-        color="blue",
-        label="Non-dominated (Pareto Front)",
-    )
-    plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
-
-    plt.title(f"Pareto Front - {experiment_name}")
-    plt.xlabel("F3")
-    plt.ylabel("F6")
-    plt.legend()
-    plt.grid(True)
-
-    if save_dir:
-        save_path = os.path.join(save_dir, f"{experiment_name}.png")
-        plt.savefig(save_path)
-
-    plt.show()
-
-
 def plot_pareto_set(
     population,
     experiment_name,
@@ -237,6 +206,37 @@ def plot_pareto_set(
 
     plt.xlim(lower_bound[0], upper_bound[0])
     plt.ylim(lower_bound[1], upper_bound[1])
+
+    if save_dir:
+        save_path = os.path.join(save_dir, f"{experiment_name}.png")
+        plt.savefig(save_path)
+
+    plt.show()
+
+
+def plot_pareto_front(population, experiment_name, save_dir=OUTPUT_DIRECTORY):
+    pareto_front = [ind for ind in population if ind[2] == 0]
+    dominated_set = [ind for ind in population if ind[2] != 0]
+
+    pareto_front_f3, pareto_front_f6 = zip(
+        *[(ind[1][0], ind[1][1]) for ind in pareto_front]
+    )
+    dominated_f3, dominated_f6 = zip(*[(ind[1][0], ind[1][1]) for ind in dominated_set])
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(
+        pareto_front_f3,
+        pareto_front_f6,
+        color="blue",
+        label="Non-dominated (Pareto Front)",
+    )
+    plt.scatter(dominated_f3, dominated_f6, color="red", label="Dominated")
+
+    plt.title(f"Pareto Front - {experiment_name}")
+    plt.xlabel("F3")
+    plt.ylabel("F6")
+    plt.legend()
+    plt.grid(True)
 
     if save_dir:
         save_path = os.path.join(save_dir, f"{experiment_name}.png")
@@ -343,25 +343,42 @@ def test_params_on_experiments(
         plot_pareto_set(
             result_population, experiment_name, upper_bound, lower_bound, save_directory
         )
-        plot_pareto_front(
-            result_population, experiment_name, upper_bound, lower_bound, save_directory
-        )
+        plot_pareto_front(result_population, experiment_name, save_directory)
         results_to_table(result_population, experiment_name, save_directory)
 
 
-if __name__ == "__main__":
-    original_stdout = sys.stdout
+class OutputLogger:
+    def __init__(
+        self,
+        log_to_file=LOG_TO_FILE_FLAG,
+        output_directory=OUTPUT_DIRECTORY,
+        log_filename=LOG_FILE_NAME,
+    ):
+        self.output_directory = output_directory
+        self.log_to_file = log_to_file
+        self.log_filename = log_filename
+        self.log_path = os.path.join(output_directory, log_filename)
+        self.original_stdout = sys.stdout
+        self.log_file = None
 
-    if LOG_TO_FILE_FLAG:
-        log_file = open(LOG_PATH, "w")
-        print(f"Logging output to {LOG_PATH}...")
-        sys.stdout = log_file
-    else:
-        log_file = None
+    def start_logging(self):
+        print(f"Logging output to {self.log_path}...")
+        os.makedirs(self.output_directory, exist_ok=True)
+        self.log_file = open(self.log_path, "w")
+        sys.stdout = self.log_file
+
+    def stop_logging(self):
+        if self.log_to_file and self.log_file:
+            self.log_file.close()
+            sys.stdout = self.original_stdout
+            print(f"All output is logged to {self.log_path}")
+
+
+if __name__ == "__main__":
+    logger = OutputLogger()
+
+    logger.start_logging()
 
     test_params_on_experiments()
 
-    if LOG_TO_FILE_FLAG:
-        log_file.close()
-        sys.stdout = original_stdout
-        print(f"All output is logged to {LOG_PATH}")
+    logger.stop_logging()
