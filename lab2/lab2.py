@@ -78,7 +78,7 @@ class MultiObjectiveGeneticAlgorithm:
                 if all(p_i[k] >= p_j[k] for k in range(len(p_i))) and any(
                     p_i[k] > p_j[k] for k in range(len(p_i))
                 ):
-                    self.__population[j][2] += 1
+                    self.__population[i][2] += 1
 
     def __sort_population(self):
         self.__population = sorted(self.__population, key=lambda x: x[2])
