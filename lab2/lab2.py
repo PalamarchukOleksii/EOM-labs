@@ -56,17 +56,19 @@ def generate_population(lower_bound, upper_bound, population_size, functions):
 
 def check_non_dominance(population):
     for i in range(len(population)):
-        for j in range(i, len(population)):
+        for j in range(i + 1, len(population)):
             if (
-                population[i][2][1] >= population[j][2][1]
-                and population[i][2][2] >= population[j][2][2]
+                population[i][1][0] >= population[j][1][0]
+                and population[i][1][1] >= population[j][1][1]
             ):
-                population[i][3] += 1
+                population[i][2] += 1
             if (
-                population[j][2][1] >= population[i][2][1]
-                and population[j][2][2] >= population[i][2][2]
+                population[j][1][0] >= population[i][1][0]
+                and population[j][1][1] >= population[i][1][1]
             ):
-                population[j][3] += 1
+                population[j][2] += 1
+
+    return population
 
 
 def sort_population(population):
