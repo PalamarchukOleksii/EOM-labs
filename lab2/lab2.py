@@ -372,7 +372,7 @@ class ResultVisualizer:
                     color=color,
                     marker="x",
                     s=100,
-                    label=f"Point based on f3 and f6 values in min of f{3 if i == 0 else 6}",
+                    label=f"Point based on f3 and f6 values in min of {function_names[i]}",
                 )
 
         ax.set_title(title)
