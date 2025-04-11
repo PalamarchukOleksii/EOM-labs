@@ -220,7 +220,7 @@ class FunctionsMinimumsInfo:
 
     def get_minimums_info(self):
         min_info = {}
-        min_info["func_count"] = len(self.__functions_list)
+        min_info["functions_names"] = [func.__name__ for func in self.__functions_list]
 
         min_points = []
         min_values = []
@@ -319,14 +319,13 @@ class ResultVisualizer:
         lower_bound,
         upper_bound,
         ax,
-        function_names,
         min_info=None,
     ):
         ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
         ax.scatter(x[1], y[1], color="red", label=legend_labels[1])
 
         if min_info:
-            for i in range(min_info["func_count"]):
+            for i in range(len(min_info["functions_names"])):
                 color = self.__min_colors[i % len(self.__min_colors)]
                 ax.scatter(
                     min_info["grouped_minimums"][i][0],
@@ -334,7 +333,7 @@ class ResultVisualizer:
                     color=color,
                     marker="x",
                     s=100,
-                    label=f"Min of {function_names[i]}",
+                    label=f"Min of {min_info["functions_names"][i]}",
                 )
 
         ax.set_title(title)
@@ -356,14 +355,13 @@ class ResultVisualizer:
         ylabel,
         legend_labels,
         ax,
-        function_names,
         min_info=None,
     ):
         ax.scatter(x[0], y[0], color="blue", label=legend_labels[0])
         ax.scatter(x[1], y[1], color="red", label=legend_labels[1])
 
         if min_info:
-            for i in range(min_info["func_count"]):
+            for i in range(len(min_info["functions_names"])):
                 color = self.__min_colors[i % len(self.__min_colors)]
 
                 ax.scatter(
@@ -372,7 +370,7 @@ class ResultVisualizer:
                     color=color,
                     marker="x",
                     s=100,
-                    label=f"Point based on f3 and f6 values in min of {function_names[i]}",
+                    label=f"Point based on {min_info["functions_names"][0]} and {min_info["functions_names"][1]} values in min of {min_info["functions_names"][i]}",
                 )
 
         ax.set_title(title)
@@ -387,7 +385,6 @@ class ResultVisualizer:
         experiment_name,
         lower_bound,
         upper_bound,
-        function_names,
         min_info=None,
     ):
         (
@@ -413,7 +410,6 @@ class ResultVisualizer:
             lower_bound,
             upper_bound,
             axes[0],
-            function_names,
             min_info,
         )
 
@@ -421,11 +417,10 @@ class ResultVisualizer:
             [pareto_f3, dominated_f3],
             [pareto_f6, dominated_f6],
             f"Pareto Front - All Points - {experiment_name}",
-            function_names[0],
-            function_names[1],
+            min_info["functions_names"][0],
+            min_info["functions_names"][1],
             ["Pareto-optimal", "Dominated"],
             axes[1],
-            function_names,
             min_info,
         )
 
@@ -564,7 +559,6 @@ class Experiment:
         mutation_fraction,
     ):
         experiment_name = f"population_size_{population_size}"
-        function_names = [func.__name__ for func in function_list]
 
         optimizer = MultiObjectiveGeneticAlgorithm(
             population_size,
