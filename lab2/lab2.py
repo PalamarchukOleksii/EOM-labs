@@ -631,7 +631,7 @@ if __name__ == "__main__":
     LOG_TO_FILE_FLAG = False
     LOG_FILENAME = "log.txt"
 
-    POPULATION_SIZES = [30, 60]
+    POPULATION_SIZES = [30, 60, 120]
     LOWER_BOUND = [-10, -10]
     UPPER_BOUND = [10, 10]
     GEN_LIMIT = 50
