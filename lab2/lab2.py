@@ -486,7 +486,7 @@ class ResultVisualizer:
         )
         df.to_csv(save_path, index=False)
 
-        print(f"{experiment_name} Results:")
+        print(f"\n{experiment_name} Results:")
         print(df)
 
 
@@ -574,6 +574,19 @@ class Experiment:
         minimizer = FunctionsMinimumsInfo(lower_bound, upper_bound, function_list)
         min_info = minimizer.get_minimums_info()
 
+        print(f"\nMinimums Information for {experiment_name}")
+        print(f"Functions: {', '.join(min_info['functions_names'])}")
+
+        print("\nFunction Minimums:")
+        for i, func_name in enumerate(min_info["functions_names"]):
+            print(f"  {func_name} minimum at point: {min_info['grouped_minimums'][i]}")
+
+        print("\nFunction Values at Minimums:")
+        for i, func_name in enumerate(min_info["functions_names"]):
+            print(
+                f"  Values at {func_name} minimum: {min_info['grouped_values_in_minimums'][i]}"
+            )
+
         self.__visualizer.plot_pareto_all_points(
             result_population,
             experiment_name,
@@ -620,10 +633,19 @@ class Experiment:
         self.__logger.stop_logging()
 
 
+class Utils:
+    @staticmethod
+    def set_random_seed(seed=42):
+        random.seed(seed)
+        print(f"Random seed set to {seed}")
+
+
 if __name__ == "__main__":
+    Utils.set_random_seed()
+
     SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
     OUTPUT_DIRECTORY = os.path.join(SCRIPT_DIRECTORY, "outputs")
-    LOG_TO_FILE_FLAG = False
+    LOG_TO_FILE_FLAG = True
     LOG_FILENAME = "log.txt"
 
     POPULATION_SIZES = [30, 60, 120]
