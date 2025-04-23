@@ -48,7 +48,7 @@ class MultiObjectiveGeneticAlgorithm:
         return [func(*point) for func in self.__function_list]
 
     def __generate_population(self):
-        for i in range(self.__population_size):
+        for _ in range(self.__population_size):
             point = []
             for d in range(len(self.__lower_bound)):
                 r_id = random.uniform(0, 1)
@@ -168,7 +168,7 @@ class MultiObjectiveGeneticAlgorithm:
         self.__check_non_dominance()
         self.__sort_population()
 
-        for i in range(self.__generation_limit):
+        for _ in range(self.__generation_limit):
             elite_count = int(len(self.__population) * self.__elite_fraction)
             crossover_count = int(len(self.__population) * self.__crossover_fraction)
 
@@ -300,7 +300,7 @@ class ResultVisualizer:
             dominated_f6,
         )
 
-    def __save_plot(self, experiment_name, plot_type, fig):
+    def __save_plot(self, experiment_name, plot_type):
         save_path = os.path.join(
             self.__output_directory, f"{plot_type}_{experiment_name}.png"
         )
@@ -398,7 +398,7 @@ class ResultVisualizer:
             dominated_f6,
         ) = self.__extract_data(population)
 
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        _, axes = plt.subplots(1, 2, figsize=(12, 6))
 
         self.__plot_pareto_set(
             [pareto_set_x, dominated_x],
@@ -424,7 +424,7 @@ class ResultVisualizer:
             min_info,
         )
 
-        self.__save_plot(experiment_name, "pareto_all_points", fig)
+        self.__save_plot(experiment_name, "pareto_all_points")
 
     def plot_pareto_non_dominated_only(
         self,
@@ -432,7 +432,6 @@ class ResultVisualizer:
         experiment_name,
         lower_bound,
         upper_bound,
-        function_names,
         min_info=None,
     ):
         (
@@ -446,7 +445,7 @@ class ResultVisualizer:
             _,
         ) = self.__extract_data(population)
 
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        _, axes = plt.subplots(1, 2, figsize=(12, 6))
 
         self.__plot_pareto_set(
             [pareto_set_x, []],
@@ -458,7 +457,6 @@ class ResultVisualizer:
             lower_bound,
             upper_bound,
             axes[0],
-            function_names,
             min_info,
         )
 
@@ -466,15 +464,14 @@ class ResultVisualizer:
             [pareto_f3, []],
             [pareto_f6, []],
             f"Pareto Front - Non-Dominated - {experiment_name}",
-            function_names[0],
-            function_names[1],
+            min_info["functions_names"][0],
+            min_info["functions_names"][1],
             ["Pareto-optimal", ""],
             axes[1],
-            function_names,
             min_info,
         )
 
-        self.__save_plot(experiment_name, "pareto_non_dominated", fig)
+        self.__save_plot(experiment_name, "pareto_non_dominated")
 
     def results_to_table(self, population, experiment_name):
         data = [
@@ -517,7 +514,7 @@ class OutputLogger:
 
         print(f"Logging output to {self.__log_path}...")
         os.makedirs(self.__output_directory, exist_ok=True)
-        self.__log_file = open(self.__log_path, "w")
+        self.__log_file = open(self.__log_path, "w", encoding="utf-8")
         sys.stdout = self.__log_file
 
     def stop_logging(self):
@@ -582,7 +579,6 @@ class Experiment:
             experiment_name,
             lower_bound,
             upper_bound,
-            function_names,
             min_info,
         )
         self.__visualizer.plot_pareto_non_dominated_only(
@@ -590,7 +586,6 @@ class Experiment:
             experiment_name,
             lower_bound,
             upper_bound,
-            function_names,
             min_info,
         )
         self.__visualizer.results_to_table(result_population, experiment_name)
