@@ -486,8 +486,15 @@ class ResultVisualizer:
         )
         df.to_csv(save_path, index=False)
 
-        print(f"\n{experiment_name} Results:")
+        print("\n" + "-" * 50)
+        print(f"RESULTS: {experiment_name}")
+        print("-" * 50)
+
+        pd.set_option("display.precision", 4)
+        pd.set_option("display.max_rows", 10)
+        pd.set_option("display.width", 120)
         print(df)
+        print("-" * 50)
 
 
 class OutputLogger:
@@ -512,7 +519,7 @@ class OutputLogger:
             print("Logging has already started.")
             return
 
-        print(f"Logging output to {self.__log_path}...")
+        print(f"Logging output to: {self.__log_path}")
         os.makedirs(self.__output_directory, exist_ok=True)
         self.__log_file = open(self.__log_path, "w", encoding="utf-8")
         sys.stdout = self.__log_file
@@ -529,7 +536,7 @@ class OutputLogger:
         self.__log_file.close()
         self.__log_file = None
         sys.stdout = self.__original_stdout
-        print(f"All output is logged to {self.__log_path}")
+        print(f"All output is logged to: {self.__log_path}")
 
 
 class Experiment:
@@ -557,6 +564,19 @@ class Experiment:
     ):
         experiment_name = f"population_size_{population_size}"
 
+        print("\n" + "=" * 70)
+        print(f"EXPERIMENT: {experiment_name}")
+        print("=" * 70)
+        print(f"Population Size: {population_size}")
+        print(f"Generation Limit: {generation_limit}")
+        print(f"Domain Bounds: {lower_bound} to {upper_bound}")
+        print(f"Parameters:")
+        print(f"  Elite Fraction: {elite_fraction:.2f}")
+        print(f"  Crossover Fraction: {crossover_fraction:.2f}")
+        print(f"  Mutation Fraction: {mutation_fraction:.2f}")
+        print(f"  Crossover Area Expansion: {crossover_area_expansion:.2f}")
+        print("=" * 70)
+
         optimizer = MultiObjectiveGeneticAlgorithm(
             population_size,
             lower_bound,
@@ -574,18 +594,23 @@ class Experiment:
         minimizer = FunctionsMinimumsInfo(lower_bound, upper_bound, function_list)
         min_info = minimizer.get_minimums_info()
 
-        print(f"\nMinimums Information for {experiment_name}")
+        print("\n" + "-" * 60)
+        print(f"MINIMUMS INFORMATION FOR {experiment_name}")
+        print("-" * 60)
         print(f"Functions: {', '.join(min_info['functions_names'])}")
 
-        print("\nFunction Minimums:")
+        print("\nFUNCTION MINIMUMS:")
         for i, func_name in enumerate(min_info["functions_names"]):
-            print(f"  {func_name} minimum at point: {min_info['grouped_minimums'][i]}")
+            coords = min_info["grouped_minimums"][i]
+            formatted_coords = [f"{x:.4f}" for x in coords]
+            print(f"  {func_name} minimum at point: ({', '.join(formatted_coords)})")
 
-        print("\nFunction Values at Minimums:")
+        print("\nFUNCTION VALUES AT MINIMUMS:")
         for i, func_name in enumerate(min_info["functions_names"]):
-            print(
-                f"  Values at {func_name} minimum: {min_info['grouped_values_in_minimums'][i]}"
-            )
+            values = min_info["grouped_values_in_minimums"][i]
+            formatted_values = [f"{x:.4f}" for x in values]
+            print(f"  Values at {func_name} minimum: ({', '.join(formatted_values)})")
+        print("-" * 60)
 
         self.__visualizer.plot_pareto_all_points(
             result_population,
@@ -617,6 +642,15 @@ class Experiment:
     ):
         self.__logger.start_logging()
 
+        print("\n" + "*" * 70)
+        print("MULTI-OBJECTIVE GENETIC ALGORITHM EXPERIMENTS")
+        print("*" * 70)
+        print(
+            f"Running {len(population_sizes)} experiments with different population sizes:"
+        )
+        print(f"   {', '.join(map(str, population_sizes))}")
+        print("*" * 70)
+
         for p in population_sizes:
             self.__run_experiment(
                 p,
@@ -630,6 +664,9 @@ class Experiment:
                 mutation_fraction,
             )
 
+        print("\n" + "*" * 70)
+        print("ALL EXPERIMENTS COMPLETED")
+        print("*" * 70)
         self.__logger.stop_logging()
 
 
@@ -637,10 +674,14 @@ class Utils:
     @staticmethod
     def set_random_seed(seed=42):
         random.seed(seed)
-        print(f"Random seed set to {seed}")
+        print("Random seed set to", seed)
 
 
 if __name__ == "__main__":
+    print("\n" + "=" * 70)
+    print("MULTI-OBJECTIVE GENETIC ALGORITHM")
+    print("=" * 70)
+
     Utils.set_random_seed()
 
     SCRIPT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -657,6 +698,10 @@ if __name__ == "__main__":
     FI_SELECTION = 0.1
     FI_CROSSOVER = 0.8
     FI_MUTATION = 0.1
+
+    print(f"Output directory: {OUTPUT_DIRECTORY}")
+    print(f"Functions: {[func.__name__ for func in FUNCTION_LIST]}")
+    print("-" * 70)
 
     experiment = Experiment(LOG_TO_FILE_FLAG, OUTPUT_DIRECTORY, LOG_FILENAME)
     experiment.run_multiple_experiments(
