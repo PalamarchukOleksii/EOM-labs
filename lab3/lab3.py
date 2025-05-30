@@ -100,8 +100,10 @@ class TabuSearch:
 
 
 class Visualizer:
+    OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+
     @staticmethod
-    def plot_route(coords, route, title="TSP Route"):
+    def plot_route(coords, route, title="TSP Route", filename="route.png"):
         x = [coords[i][0] for i in route + [route[0]]]
         y = [coords[i][1] for i in route + [route[0]]]
         plt.figure(figsize=(10, 8))
@@ -109,10 +111,14 @@ class Visualizer:
         plt.title(title)
         plt.gca().set_aspect("equal")
         plt.grid(True, linestyle="--", alpha=0.6)
-        plt.show()
+
+        os.makedirs(Visualizer.OUTPUT_DIR, exist_ok=True)
+        path = os.path.join(Visualizer.OUTPUT_DIR, filename)
+        plt.savefig(path)
+        plt.close()
 
     @staticmethod
-    def plot_history(histories, labels):
+    def plot_history(histories, labels, filename="history.png"):
         plt.figure(figsize=(12, 6))
         for h, label in zip(histories, labels):
             plt.plot(h, label=label)
@@ -121,7 +127,11 @@ class Visualizer:
         plt.ylabel("Best Distance")
         plt.grid(True)
         plt.legend()
-        plt.show()
+
+        os.makedirs(Visualizer.OUTPUT_DIR, exist_ok=True)
+        path = os.path.join(Visualizer.OUTPUT_DIR, filename)
+        plt.savefig(path)
+        plt.close()
 
 
 class Configuration:
@@ -129,23 +139,30 @@ class Configuration:
         self.name, self.iterations, self.tabu_size = name, iterations, tabu_size
 
 
-def run_experiment(configs, num_cities, width, height):
-    coords = TSPHelper.generate_cities(num_cities, width, height)
-    histories, labels = [], []
+class Experiment:
+    @staticmethod
+    def run_experiment(configs, num_cities, width, height):
+        coords = TSPHelper.generate_cities(num_cities, width, height)
+        histories, labels = [], []
 
-    for cfg in configs:
-        print(f"\nRunning: {cfg.name}")
-        solver = TabuSearch(coords, cfg.iterations, cfg.tabu_size)
-        best_route, best_dist, history = solver.solve()
-        init_dist = TSPHelper.route_distance(list(range(num_cities)), solver.matrix)
-        print(
-            f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {(init_dist - best_dist) / init_dist * 100:.2f}%"
-        )
-        histories.append(history)
-        labels.append(f"{cfg.name} ({best_dist:.0f})")
-        Visualizer.plot_route(coords, best_route, f"{cfg.name} - Best Route")
+        for cfg in configs:
+            print(f"\nRunning: {cfg.name}")
+            solver = TabuSearch(coords, cfg.iterations, cfg.tabu_size)
+            best_route, best_dist, history = solver.solve()
+            init_dist = TSPHelper.route_distance(list(range(num_cities)), solver.matrix)
+            print(
+                f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {(init_dist - best_dist) / init_dist * 100:.2f}%"
+            )
+            histories.append(history)
+            labels.append(f"{cfg.name} ({best_dist:.0f})")
+            Visualizer.plot_route(
+                coords,
+                best_route,
+                f"{cfg.name} - Best Route",
+                f"{cfg.name.lower()}_route.png",
+            )
 
-    Visualizer.plot_history(histories, labels)
+        Visualizer.plot_history(histories, labels, filename="comparison_history.png")
 
 
 if __name__ == "__main__":
