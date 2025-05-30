@@ -1,190 +1,168 @@
-import random
-import math
+import os, sys, random, time, math
 import matplotlib.pyplot as plt
 
 
-def generate_random_coordinates(n=100, width=10000, height=10000):
-    return [(random.uniform(0, width), random.uniform(0, height)) for _ in range(n)]
+class OutputLogger:
+    def __init__(self, enabled, directory, filename):
+        self.enabled = enabled
+        self.path = os.path.join(directory, filename)
+        self.original_stdout = sys.stdout
+        self.log_file = None
+
+    def start(self):
+        if not self.enabled:
+            return
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        self.log_file = open(self.path, "w", encoding="utf-8")
+        sys.stdout = self.log_file
+
+    def stop(self):
+        if not self.enabled or not self.log_file:
+            return
+        sys.stdout = self.original_stdout
+        self.log_file.close()
+        print(f"Logs saved to: {self.path}")
 
 
-def euclidean_distance(city1, city2):
-    return math.sqrt((city1[0] - city2[0]) ** 2 + (city1[1] - city2[1]) ** 2)
+class TSPHelper:
+    @staticmethod
+    def generate_cities(n, width, height):
+        return [(random.uniform(0, width), random.uniform(0, height)) for _ in range(n)]
+
+    @staticmethod
+    def euclidean(a, b):
+        return math.hypot(a[0] - b[0], a[1] - b[1])
+
+    @staticmethod
+    def distance_matrix(coords):
+        n = len(coords)
+        return [
+            [
+                TSPHelper.euclidean(coords[i], coords[j]) if i != j else 0
+                for j in range(n)
+            ]
+            for i in range(n)
+        ]
+
+    @staticmethod
+    def route_distance(route, matrix):
+        return sum(
+            matrix[route[i]][route[(i + 1) % len(route)]] for i in range(len(route))
+        )
+
+    @staticmethod
+    def generate_neighbors_2opt(route):
+        n, neighbors = len(route), []
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                new = route[:i] + route[i : j + 1][::-1] + route[j + 1 :]
+                neighbors.append((new, (i, j)))
+        return neighbors
 
 
-def create_distance_matrix(coordinates):
-    n = len(coordinates)
-    matrix = [[0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                matrix[i][j] = euclidean_distance(coordinates[i], coordinates[j])
-    return matrix
+class TabuSearch:
+    def __init__(self, coords, iterations, tabu_size):
+        self.coords = coords
+        self.iterations = iterations
+        self.tabu_size = tabu_size
+        self.matrix = TSPHelper.distance_matrix(coords)
+        self.tabu = []
+
+    def solve(self):
+        route = list(range(len(self.coords)))
+        random.shuffle(route)
+        best = route[:]
+        best_dist = TSPHelper.route_distance(best, self.matrix)
+        history = [best_dist]
+
+        for i in range(self.iterations):
+            if i % 100 == 0:
+                print(f"{i=}")
+
+            neighbors = TSPHelper.generate_neighbors_2opt(route)
+            candidates = [
+                (r, TSPHelper.route_distance(r, self.matrix), m)
+                for r, m in neighbors
+                if m not in self.tabu
+            ]
+            if not candidates:
+                continue
+            best_candidate = min(candidates, key=lambda x: x[1])
+            route = best_candidate[0]
+            self.tabu.append(best_candidate[2])
+            if len(self.tabu) > self.tabu_size:
+                self.tabu.pop(0)
+            if best_candidate[1] < best_dist:
+                best, best_dist = route[:], best_candidate[1]
+            history.append(best_dist)
+
+        return best, best_dist, history
 
 
-def calculate_distance(route, distance_matrix):
-    total_distance = 0
-    num_cities = len(route)
-    for i in range(num_cities):
-        total_distance += distance_matrix[route[i]][route[(i + 1) % num_cities]]
-    return total_distance
+class Visualizer:
+    @staticmethod
+    def plot_route(coords, route, title="TSP Route"):
+        x = [coords[i][0] for i in route + [route[0]]]
+        y = [coords[i][1] for i in route + [route[0]]]
+        plt.figure(figsize=(10, 8))
+        plt.plot(x, y, "o-", markersize=4)
+        plt.title(title)
+        plt.gca().set_aspect("equal")
+        plt.grid(True, linestyle="--", alpha=0.6)
+        plt.show()
+
+    @staticmethod
+    def plot_history(histories, labels):
+        plt.figure(figsize=(12, 6))
+        for h, label in zip(histories, labels):
+            plt.plot(h, label=label)
+        plt.title("Tabu Search Progress")
+        plt.xlabel("Iteration")
+        plt.ylabel("Best Distance")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
 
 
-def get_neighbors_2opt(route):
-    n = len(route)
-    neighbors = []
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            new_route = route[:]
-            new_route[i : j + 1] = new_route[i : j + 1][::-1]
-
-            neighbors.append((new_route, (i, j)))
-    return neighbors
+class Configuration:
+    def __init__(self, name, iterations, tabu_size):
+        self.name, self.iterations, self.tabu_size = name, iterations, tabu_size
 
 
-def tabu_search_flowchart(coordinates, iterations=50000, tabu_size=30):
-    distance_matrix = create_distance_matrix(coordinates)
-    n = len(coordinates)
+def run_experiment(configs, num_cities, width, height):
+    coords = TSPHelper.generate_cities(num_cities, width, height)
+    histories, labels = [], []
 
-    current_solution = list(range(n))
-    random.shuffle(current_solution)
-    start_solution = current_solution[:]
+    for cfg in configs:
+        print(f"\nRunning: {cfg.name}")
+        solver = TabuSearch(coords, cfg.iterations, cfg.tabu_size)
+        best_route, best_dist, history = solver.solve()
+        init_dist = TSPHelper.route_distance(list(range(num_cities)), solver.matrix)
+        print(
+            f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {(init_dist - best_dist) / init_dist * 100:.2f}%"
+        )
+        histories.append(history)
+        labels.append(f"{cfg.name} ({best_dist:.0f})")
+        Visualizer.plot_route(coords, best_route, f"{cfg.name} - Best Route")
 
-    tabu_list = []
-
-    best_solution = current_solution[:]
-    best_distance = calculate_distance(best_solution, distance_matrix)
-
-    distances_history = [best_distance]
-
-    for iter_num in range(iterations):
-        if iter_num % 100 == 0:
-            print(f"{iter_num=}")
-
-        best_candidate_neighbor_route = None
-        best_candidate_distance = float("inf")
-        best_candidate_move = None
-
-        neighbors = get_neighbors_2opt(current_solution)
-
-        for neighbor_route, move in neighbors:
-            if move not in tabu_list:
-                neighbor_distance = calculate_distance(neighbor_route, distance_matrix)
-                if neighbor_distance < best_candidate_distance:
-                    best_candidate_distance = neighbor_distance
-                    best_candidate_neighbor_route = neighbor_route[:]
-                    best_candidate_move = move
-
-        if best_candidate_neighbor_route is not None:
-            current_solution = best_candidate_neighbor_route[:]
-            current_distance = best_candidate_distance
-
-            if current_distance < best_distance:
-                best_solution = current_solution[:]
-                best_distance = current_distance
-
-            tabu_list.append(best_candidate_move)
-            if len(tabu_list) > tabu_size:
-                tabu_list.pop(0)
-        else:
-            pass
-
-        distances_history.append(best_distance)
-
-    return start_solution, best_solution, best_distance, distances_history
-
-
-def plot_route(coordinates, route, title):
-    x = [coordinates[i][0] for i in route] + [coordinates[route[0]][0]]
-    y = [coordinates[i][1] for i in route] + [coordinates[route[0]][1]]
-
-    plt.figure(figsize=(10, 8))
-    plt.plot(x, y, marker="o", linestyle="-", color="blue")
-
-    for i, (xi, yi) in enumerate(coordinates):
-        plt.text(xi + 0.5, yi + 0.5, str(i), fontsize=9, ha="center", va="bottom")
-
-    plt.title(title)
-    plt.xlabel("X-координата")
-    plt.ylabel("Y-координата")
-    plt.grid(True, linestyle="--", alpha=0.7)
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.show()
-
-
-def plot_cities(coordinates):
-    x = [city[0] for city in coordinates]
-    y = [city[1] for city in coordinates]
-
-    plt.figure(figsize=(10, 8))
-    plt.scatter(x, y, marker="o", color="red", s=50, zorder=5)
-
-    for i, (xi, yi) in enumerate(coordinates):
-        plt.text(xi + 0.5, yi + 0.5, str(i), fontsize=9, ha="center", va="bottom")
-
-    plt.title("Координати міст (без маршруту)")
-    plt.xlabel("X-координата")
-    plt.ylabel("Y-координата")
-    plt.grid(True, linestyle="--", alpha=0.7)
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.show()
-
-
-def plot_progress(distances_history, title="Прогрес алгоритму табу-пошуку"):
-    plt.figure(figsize=(10, 6))
-    plt.plot(distances_history, color="green", linewidth=2)
-    plt.title(title)
-    plt.xlabel("Ітерація")
-    plt.ylabel("Найкраща довжина маршруту")
-    plt.grid(True, linestyle="--", alpha=0.7)
-    plt.show()
+    Visualizer.plot_history(histories, labels)
 
 
 if __name__ == "__main__":
     random.seed(42)
-
-    num_cities = 100
-
-    coordinates = generate_random_coordinates(n=num_cities)
-
-    iterations_count = 50000
-    tabu_list_size = num_cities / 2
-
-    print(f"Запускаємо табу-пошук для {num_cities} міст...")
-    print(
-        f"Кількість ітерацій: {iterations_count}, Розмір табу-списку: {tabu_list_size}"
+    NUM_CITIES = 100
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    logger = OutputLogger(
+        enabled=False,
+        directory=os.path.join(BASE_DIR, "outputs"),
+        filename="tsp_log.txt",
     )
+    logger.start()
 
-    start_solution, best_route, best_cost, history = tabu_search_flowchart(
-        coordinates, iterations=iterations_count, tabu_size=tabu_list_size
-    )
+    configurations = [
+        Configuration("Conservative", iterations=10000, tabu_size=30),
+        Configuration("Aggressive", iterations=25000, tabu_size=70),
+    ]
+    run_experiment(configurations, NUM_CITIES, 10000, 10000)
 
-    initial_distance = calculate_distance(
-        start_solution, create_distance_matrix(coordinates)
-    )
-
-    print("\n--- Результати табу-пошуку ---")
-    print(f"Кількість міст: {num_cities}")
-    print(f"Початкова довжина маршруту: {round(initial_distance, 2)}")
-    print(f"Найкраща довжина маршруту, знайдена алгоритмом: {round(best_cost, 2)}")
-    print(
-        f"Покращення: {round((initial_distance - best_cost) / initial_distance * 100, 2)}%"
-    )
-
-    print("\nПочатковий маршрут (перші 5 та останні 5 міст):")
-    print(start_solution[:5], "...", start_solution[-5:])
-    print("\nНайкращий знайдений маршрут (перші 5 та останні 5 міст):")
-    print(best_route[:5], "...", best_route[-5:])
-
-    print("\n--- Візуалізація результатів ---")
-    plot_cities(coordinates)
-    plot_route(
-        coordinates,
-        start_solution,
-        f"Початковий маршрут (Довжина: {round(initial_distance, 2)})",
-    )
-    plot_route(
-        coordinates, best_route, f"Найкращий маршрут (Довжина: {round(best_cost, 2)})"
-    )
-    plot_progress(
-        history, f"Прогрес табу-пошуку ({num_cities} міст, {iterations_count} ітерацій)"
-    )
+    logger.stop()
