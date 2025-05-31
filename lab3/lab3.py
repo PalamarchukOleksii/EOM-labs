@@ -1,4 +1,4 @@
-import os, sys, random, time, math
+import os, sys, random, math, itertools
 import matplotlib.pyplot as plt
 
 
@@ -165,21 +165,40 @@ class Experiment:
         Visualizer.plot_history(histories, labels, filename="comparison_history.png")
 
 
+class Utils:
+    @staticmethod
+    def generate_configurations(iter_opt, tabu_ratio_opt):
+        configurations_list = []
+        for i, (iters, ratio) in enumerate(itertools.product(iter_opt, tabu_ratio_opt), 1):
+            tabu_size = int(NUM_CITIES * ratio)
+            name = f"Cfg{i}_it{iters}_tb{tabu_size}"
+            configurations_list.append(Configuration(name=name, iterations=iters, tabu_size=tabu_size))
+
+        return configurations_list
+    
+
 if __name__ == "__main__":
     random.seed(42)
-    NUM_CITIES = 100
+
+    ENABLE_LOGGING = True
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+    OUTPUT_FILENAME = "tsp_log.txt"
+
+    NUM_CITIES = 100
+
     logger = OutputLogger(
-        enabled=False,
-        directory=os.path.join(BASE_DIR, "outputs"),
-        filename="tsp_log.txt",
+        enabled=ENABLE_LOGGING,
+        directory=OUTPUT_DIR,
+        filename=OUTPUT_FILENAME,
     )
     logger.start()
 
-    configurations = [
-        Configuration("Conservative", iterations=10000, tabu_size=30),
-        Configuration("Aggressive", iterations=25000, tabu_size=70),
-    ]
-    run_experiment(configurations, NUM_CITIES, 10000, 10000)
+    iteration_options = [100, 150, 200]
+    tabu_ratio_options = [0.25, 0.5, 0.75]
+    
+    configurations = Utils.generate_configurations(iteration_options, tabu_ratio_options)
+
+    Experiment.run_experiment(configurations, NUM_CITIES, 10000, 10000)
 
     logger.stop()
