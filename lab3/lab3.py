@@ -142,9 +142,45 @@ class TabuSearch:
 
 class Visualizer:
     @staticmethod
+    def plot_cities(coords, filename="cities.png", output_dir="outputs"):
+        plt.figure(figsize=(8, 6))
+        x = [c[0] for c in coords]
+        y = [c[1] for c in coords]
+        plt.plot(x, y, "o", markersize=6, color="blue", label="Cities")
+        plt.title("Cities Distribution")
+        plt.xlabel("X-coordinate")
+        plt.ylabel("Y-coordinate")
+        plt.grid(True, linestyle="--", alpha=0.6)
+        plt.legend()
+        plt.tight_layout()
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, filename)
+        plt.savefig(path)
+        plt.close()
+        print(f"Cities plot saved to {path}")
+
+    @staticmethod
+    def plot_initial_route(coords, initial_route, distance, filename="initial_route.png", output_dir="outputs"):
+        plt.figure(figsize=(8, 6))
+        x = [coords[i][0] for i in initial_route + [initial_route[0]]]
+        y = [coords[i][1] for i in initial_route + [initial_route[0]]]
+        plt.plot(x, y, "o-", markersize=4, label=f"Distance: {distance:.2f}")
+        plt.title("Initial Random Route")
+        plt.xlabel("X-coordinate")
+        plt.ylabel("Y-coordinate")
+        plt.grid(True, linestyle="--", alpha=0.6)
+        plt.legend()
+        plt.tight_layout()
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, filename)
+        plt.savefig(path)
+        plt.close()
+        print(f"Initial route plot saved to {path}")
+
+    @staticmethod
     def plot_routes_grid(coords, routes, labels, filename="routes_grid.png", output_dir="outputs"):
         cols = 3
-        rows = (len(routes) + 1) // cols
+        rows = (len(routes) + cols - 1) // cols
         fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
         axes = axes.flatten()
 
@@ -157,6 +193,9 @@ class Visualizer:
             ax.set_aspect("equal")
             ax.grid(True, linestyle="--", alpha=0.6)
 
+        for i in range(len(routes), len(axes)):
+            fig.delaxes(axes[i])
+
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
         plt.tight_layout()
@@ -167,7 +206,7 @@ class Visualizer:
     @staticmethod
     def plot_histories_grid(histories, labels, filename="histories_grid.png", output_dir="outputs"):
         cols = 3
-        rows = (len(histories) + 1) // cols
+        rows = (len(histories) + cols - 1) // cols
         fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
         axes = axes.flatten()
 
@@ -177,6 +216,9 @@ class Visualizer:
             axes[idx].set_xlabel("Iteration")
             axes[idx].set_ylabel("Best Distance")
             axes[idx].grid(True)
+        
+        for i in range(len(histories), len(axes)):
+            fig.delaxes(axes[i])
 
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
@@ -199,14 +241,22 @@ class Experiment:
         summary_table = []
         num_cities = len(coords)
 
+        Visualizer.plot_cities(coords, output_dir=output_dir)
+
+        initial_random_route = list(range(num_cities))
+        random.shuffle(initial_random_route)
+        initial_random_distance = TSPHelper.route_distance(initial_random_route, matrix)
+        Visualizer.plot_initial_route(coords, initial_random_route, initial_random_distance, output_dir=output_dir)
+
+
         for cfg in configs:
             print(f"\n=== Running configuration: {cfg.name} ===")
             solver = TabuSearch(coords, matrix, cfg.iterations, cfg.tabu_size)
             best_route, best_dist, history = solver.solve()
-            init_dist = TSPHelper.route_distance(list(range(num_cities)), matrix)
-            improvement = (init_dist - best_dist) / init_dist * 100
+            init_dist_for_cfg = history[0]
+            improvement = (init_dist_for_cfg - best_dist) / init_dist_for_cfg * 100
 
-            print(f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {improvement:.2f}%")
+            print(f"Initial: {init_dist_for_cfg:.2f}, Final: {best_dist:.2f}, Improvement: {improvement:.2f}%")
 
             histories.append(history)
             labels.append(f"{cfg.name} ({best_dist:.0f})")
@@ -216,7 +266,7 @@ class Experiment:
                 "Name": cfg.name,
                 "Iterations": cfg.iterations,
                 "TabuSize": cfg.tabu_size,
-                "InitialDistance": round(init_dist, 2),
+                "InitialDistance": round(init_dist_for_cfg, 2),
                 "FinalDistance": round(best_dist, 2),
                 "Improvement(%)": round(improvement, 2)
             })
@@ -251,6 +301,9 @@ class Utils:
         configurations_list = []
         for i, (iters, ratio) in enumerate(itertools.product(iter_opt, tabu_ratio_opt), 1):
             tabu_size = int(num_cities * ratio)
+            if tabu_size == 0 and num_cities > 0:
+                tabu_size = 1
+
             name = f"Cfg{i}_it{iters}_tb{tabu_size}"
             configurations_list.append(Configuration(name=name, iterations=iters, tabu_size=tabu_size))
         print(f"{len(configurations_list)} configurations generated.")
@@ -292,7 +345,7 @@ if __name__ == "__main__":
     )
     logger.start()
 
-    iteration_options = [125, 250,500]
+    iteration_options = [125, 250, 500]
     tabu_ratio_options = [0.25, 0.5, 0.75]
     configurations = Utils.generate_configurations(iteration_options, tabu_ratio_options, NUM_CITIES)
     cities, matrix = Utils.prepare_inputs(NUM_CITIES, WIDTH, HEIGHT, inputs_dir=INPUT_DIR)
