@@ -1,6 +1,7 @@
 import os, sys, random, math, itertools, csv
 import matplotlib.pyplot as plt
 
+
 class OutputLogger:
     def __init__(self, enabled, directory, filename):
         self.enabled = enabled
@@ -146,16 +147,15 @@ class Visualizer:
         plt.figure(figsize=(8, 6))
         x = [c[0] for c in coords]
         y = [c[1] for c in coords]
-        plt.plot(x, y, "o", markersize=6, color="blue", label="Cities")
-        plt.title("Cities Distribution")
-        plt.xlabel("X-coordinate")
-        plt.ylabel("Y-coordinate")
-        plt.grid(True, linestyle="--", alpha=0.6)
-        plt.legend()
+        plt.scatter(x, y, s=50, color="#2E86AB", alpha=0.8, edgecolors='white', linewidth=0.5, label="Cities")
+        plt.title("Cities Distribution", fontweight='bold', pad=20)
+        plt.xlabel("X-coordinate", fontweight='bold')
+        plt.ylabel("Y-coordinate", fontweight='bold')
+        plt.legend(frameon=True, fancybox=True, shadow=True)
         plt.tight_layout()
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
-        plt.savefig(path)
+        plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Cities plot saved to {path}")
 
@@ -164,16 +164,17 @@ class Visualizer:
         plt.figure(figsize=(8, 6))
         x = [coords[i][0] for i in initial_route + [initial_route[0]]]
         y = [coords[i][1] for i in initial_route + [initial_route[0]]]
-        plt.plot(x, y, "o-", markersize=4, label=f"Distance: {distance:.2f}")
-        plt.title("Initial Random Route")
-        plt.xlabel("X-coordinate")
-        plt.ylabel("Y-coordinate")
-        plt.grid(True, linestyle="--", alpha=0.6)
-        plt.legend()
+        plt.plot(x, y, 'o-', color="#A23B72", alpha=0.8, markersize=4, 
+                linewidth=1.5, markeredgecolor='white', markeredgewidth=0.5,
+                label=f"Distance: {distance:.2f}")
+        plt.title("Initial Random Route", fontweight='bold', pad=20)
+        plt.xlabel("X-coordinate", fontweight='bold')
+        plt.ylabel("Y-coordinate", fontweight='bold')
+        plt.legend(frameon=True, fancybox=True, shadow=True)
         plt.tight_layout()
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
-        plt.savefig(path)
+        plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Initial route plot saved to {path}")
 
@@ -181,25 +182,34 @@ class Visualizer:
     def plot_routes_grid(coords, routes, labels, filename="routes_grid.png", output_dir="outputs"):
         cols = 3
         rows = (len(routes) + cols - 1) // cols
-        fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
-        axes = axes.flatten()
-
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows))
+        if rows == 1:
+            axes = [axes] if cols == 1 else axes
+        else:
+            axes = axes.flatten()
+        
+        colors = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#592E83', '#048A81', '#F72C25', '#A4BE7B', '#5E503F']
+        
         for idx, (route, label) in enumerate(zip(routes, labels)):
             x = [coords[i][0] for i in route + [route[0]]]
             y = [coords[i][1] for i in route + [route[0]]]
-            ax = axes[idx]
-            ax.plot(x, y, "o-", markersize=4)
-            ax.set_title(label)
+            ax = axes[idx] if len(axes) > 1 else axes
+            color = colors[idx % len(colors)]
+            ax.plot(x, y, 'o-', color=color, alpha=0.8, markersize=3, 
+                   linewidth=1.5, markeredgecolor='white', markeredgewidth=0.3)
+            ax.set_title(label, fontweight='bold', pad=15)
+            ax.set_xlabel("X-coordinate", fontweight='bold')
+            ax.set_ylabel("Y-coordinate", fontweight='bold')
             ax.set_aspect("equal")
-            ax.grid(True, linestyle="--", alpha=0.6)
 
-        for i in range(len(routes), len(axes)):
-            fig.delaxes(axes[i])
+        for i in range(len(routes), len(axes) if hasattr(axes, '__len__') else 1):
+            if hasattr(axes, '__len__') and i < len(axes):
+                fig.delaxes(axes[i])
 
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
-        plt.tight_layout()
-        plt.savefig(path)
+        plt.tight_layout(pad=3.0)
+        plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Route plots saved to {path}")
 
@@ -207,23 +217,32 @@ class Visualizer:
     def plot_histories_grid(histories, labels, filename="histories_grid.png", output_dir="outputs"):
         cols = 3
         rows = (len(histories) + cols - 1) // cols
-        fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
-        axes = axes.flatten()
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows))
+        if rows == 1:
+            axes = [axes] if cols == 1 else axes
+        else:
+            axes = axes.flatten()
+        
+        colors = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#592E83', '#048A81', '#F72C25', '#A4BE7B', '#5E503F']
 
         for idx, (history, label) in enumerate(zip(histories, labels)):
-            axes[idx].plot(history)
-            axes[idx].set_title(label)
-            axes[idx].set_xlabel("Iteration")
-            axes[idx].set_ylabel("Best Distance")
-            axes[idx].grid(True)
+            ax = axes[idx] if len(axes) > 1 else axes
+            color = colors[idx % len(colors)]
+            ax.plot(history, color=color, alpha=0.9, linewidth=2.5)
+            ax.set_title(label, fontweight='bold', pad=15)
+            ax.set_xlabel("Iteration", fontweight='bold')
+            ax.set_ylabel("Best Distance", fontweight='bold')
+            ax.tick_params(axis='x', rotation=0)
+            ax.tick_params(axis='y', rotation=0)
         
-        for i in range(len(histories), len(axes)):
-            fig.delaxes(axes[i])
+        for i in range(len(histories), len(axes) if hasattr(axes, '__len__') else 1):
+            if hasattr(axes, '__len__') and i < len(axes):
+                fig.delaxes(axes[i])
 
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
-        plt.tight_layout()
-        plt.savefig(path)
+        plt.tight_layout(pad=3.0)
+        plt.savefig(path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"History plots saved to {path}")
 
@@ -325,9 +344,36 @@ class Utils:
         TSPHelper.save_matrix(matrix, matrix_path)
 
         return cities, matrix
+    
+    @staticmethod
+    def set_plot_style():
+        plt.style.use('default')
+        plt.rcParams.update({
+            'figure.facecolor': 'white',
+            'axes.facecolor': 'white',
+            'axes.edgecolor': '#333333',
+            'axes.linewidth': 1.0,
+            'axes.grid': True,
+            'grid.color': '#E0E0E0',
+            'grid.linestyle': '--',
+            'grid.linewidth': 0.8,
+            'grid.alpha': 0.7,
+            'font.size': 10,
+            'axes.titlesize': 12,
+            'axes.labelsize': 10,
+            'xtick.labelsize': 9,
+            'ytick.labelsize': 9,
+            'legend.fontsize': 10,
+            'lines.linewidth': 2.0,
+            'lines.markersize': 6,
+            'axes.spines.top': False,
+            'axes.spines.right': False,
+        })
+
 
 if __name__ == "__main__":
     random.seed(42)
+    Utils.set_plot_style()
 
     ENABLE_LOGGING = False
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
