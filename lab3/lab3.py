@@ -76,7 +76,7 @@ class TabuSearch:
         history = [best_dist]
 
         for i in range(self.iterations):
-            if i % 100 == 0:
+            if i % 10 == 0:
                 print(f"{i=}")
 
             neighbors = TSPHelper.generate_neighbors_2opt(route)
@@ -100,36 +100,52 @@ class TabuSearch:
 
 
 class Visualizer:
-    OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
-
     @staticmethod
-    def plot_route(coords, route, title="TSP Route", filename="route.png"):
-        x = [coords[i][0] for i in route + [route[0]]]
-        y = [coords[i][1] for i in route + [route[0]]]
-        plt.figure(figsize=(10, 8))
-        plt.plot(x, y, "o-", markersize=4)
-        plt.title(title)
-        plt.gca().set_aspect("equal")
-        plt.grid(True, linestyle="--", alpha=0.6)
+    def plot_routes_grid(coords, routes, labels, filename="routes_grid.png", output_dir="outputs"):
+        cols = 2
+        rows = (len(routes) + 1) // cols
+        fig, axes = plt.subplots(rows, cols, figsize=(12, 6 * rows))
+        axes = axes.flatten()
 
-        os.makedirs(Visualizer.OUTPUT_DIR, exist_ok=True)
-        path = os.path.join(Visualizer.OUTPUT_DIR, filename)
+        for idx, (route, label) in enumerate(zip(routes, labels)):
+            x = [coords[i][0] for i in route + [route[0]]]
+            y = [coords[i][1] for i in route + [route[0]]]
+            ax = axes[idx]
+            ax.plot(x, y, "o-", markersize=4)
+            ax.set_title(label)
+            ax.set_aspect("equal")
+            ax.grid(True, linestyle="--", alpha=0.6)
+
+        # Hide unused subplots
+        for ax in axes[len(routes):]:
+            ax.axis("off")
+
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, filename)
+        plt.tight_layout()
         plt.savefig(path)
         plt.close()
 
     @staticmethod
-    def plot_history(histories, labels, filename="history.png"):
-        plt.figure(figsize=(12, 6))
-        for h, label in zip(histories, labels):
-            plt.plot(h, label=label)
-        plt.title("Tabu Search Progress")
-        plt.xlabel("Iteration")
-        plt.ylabel("Best Distance")
-        plt.grid(True)
-        plt.legend()
+    def plot_histories_grid(histories, labels, filename="histories_grid.png", output_dir="outputs"):
+        cols = 2
+        rows = (len(histories) + 1) // cols
+        fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
+        axes = axes.flatten()
 
-        os.makedirs(Visualizer.OUTPUT_DIR, exist_ok=True)
-        path = os.path.join(Visualizer.OUTPUT_DIR, filename)
+        for idx, (history, label) in enumerate(zip(histories, labels)):
+            axes[idx].plot(history)
+            axes[idx].set_title(label)
+            axes[idx].set_xlabel("Iteration")
+            axes[idx].set_ylabel("Best Distance")
+            axes[idx].grid(True)
+
+        for ax in axes[len(histories):]:
+            ax.axis("off")
+
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, filename)
+        plt.tight_layout()
         plt.savefig(path)
         plt.close()
 
@@ -139,30 +155,55 @@ class Configuration:
         self.name, self.iterations, self.tabu_size = name, iterations, tabu_size
 
 
+import csv
+
 class Experiment:
     @staticmethod
-    def run_experiment(configs, num_cities, width, height):
+    def run_experiment(configs, num_cities, width, height, output_dir="outputs"):
         coords = TSPHelper.generate_cities(num_cities, width, height)
-        histories, labels = [], []
+        histories, labels, best_routes = [], [], []
+        summary_table = []
 
         for cfg in configs:
             print(f"\nRunning: {cfg.name}")
             solver = TabuSearch(coords, cfg.iterations, cfg.tabu_size)
             best_route, best_dist, history = solver.solve()
             init_dist = TSPHelper.route_distance(list(range(num_cities)), solver.matrix)
-            print(
-                f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {(init_dist - best_dist) / init_dist * 100:.2f}%"
-            )
+            improvement = (init_dist - best_dist) / init_dist * 100
+
+            print(f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {improvement:.2f}%")
+
             histories.append(history)
             labels.append(f"{cfg.name} ({best_dist:.0f})")
-            Visualizer.plot_route(
-                coords,
-                best_route,
-                f"{cfg.name} - Best Route",
-                f"{cfg.name.lower()}_route.png",
-            )
+            best_routes.append(best_route)
 
-        Visualizer.plot_history(histories, labels, filename="comparison_history.png")
+            summary_table.append({
+                "Name": cfg.name,
+                "Iterations": cfg.iterations,
+                "TabuSize": cfg.tabu_size,
+                "InitialDistance": round(init_dist, 2),
+                "FinalDistance": round(best_dist, 2),
+                "Improvement(%)": round(improvement, 2)
+            })
+
+        Visualizer.plot_routes_grid(coords, best_routes, labels, filename="routes_grid.png", output_dir=output_dir)
+        Visualizer.plot_histories_grid(histories, labels, filename="histories_grid.png", output_dir=output_dir)
+        Experiment.save_summary(summary_table, output_dir)
+
+    @staticmethod
+    def save_summary(table, output_dir):
+        print("\nComparison Table:")
+        headers = table[0].keys()
+        row_format = "{:<20}" * len(headers)
+        print(row_format.format(*headers))
+        for row in table:
+            print(row_format.format(*[str(row[h]) for h in headers]))
+
+        csv_path = os.path.join(output_dir, "summary.csv")
+        with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(table)
 
 
 class Utils:
@@ -180,7 +221,7 @@ class Utils:
 if __name__ == "__main__":
     random.seed(42)
 
-    ENABLE_LOGGING = True
+    ENABLE_LOGGING = False
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
     OUTPUT_FILENAME = "tsp_log.txt"
@@ -194,11 +235,11 @@ if __name__ == "__main__":
     )
     logger.start()
 
-    iteration_options = [100, 150, 200]
+    iteration_options = [125,250]
     tabu_ratio_options = [0.25, 0.5, 0.75]
     
     configurations = Utils.generate_configurations(iteration_options, tabu_ratio_options)
 
-    Experiment.run_experiment(configurations, NUM_CITIES, 10000, 10000)
+    Experiment.run_experiment(configurations, NUM_CITIES, 10000, 10000, output_dir=OUTPUT_DIR)
 
     logger.stop()
