@@ -1,6 +1,5 @@
-import os, sys, random, math, itertools
+import os, sys, random, math, itertools, csv
 import matplotlib.pyplot as plt
-
 
 class OutputLogger:
     def __init__(self, enabled, directory, filename):
@@ -45,6 +44,34 @@ class TSPHelper:
         ]
 
     @staticmethod
+    def save_cities(coords, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["x", "y"])
+            writer.writerows(coords)
+
+    @staticmethod
+    def load_cities(path):
+        with open(path, "r") as f:
+            reader = csv.reader(f)
+            next(reader)
+            return [(float(x), float(y)) for x, y in reader]
+
+    @staticmethod
+    def save_matrix(matrix, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(matrix)
+
+    @staticmethod
+    def load_matrix(path):
+        with open(path, "r") as f:
+            reader = csv.reader(f)
+            return [[float(cell) for cell in row] for row in reader]
+
+    @staticmethod
     def route_distance(route, matrix):
         return sum(
             matrix[route[i]][route[(i + 1) % len(route)]] for i in range(len(route))
@@ -61,11 +88,11 @@ class TSPHelper:
 
 
 class TabuSearch:
-    def __init__(self, coords, iterations, tabu_size):
+    def __init__(self, coords, matrix, iterations, tabu_size):
         self.coords = coords
         self.iterations = iterations
         self.tabu_size = tabu_size
-        self.matrix = TSPHelper.distance_matrix(coords)
+        self.matrix = matrix
         self.tabu = []
 
     def solve(self):
@@ -102,9 +129,9 @@ class TabuSearch:
 class Visualizer:
     @staticmethod
     def plot_routes_grid(coords, routes, labels, filename="routes_grid.png", output_dir="outputs"):
-        cols = 2
+        cols = 3
         rows = (len(routes) + 1) // cols
-        fig, axes = plt.subplots(rows, cols, figsize=(12, 6 * rows))
+        fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
         axes = axes.flatten()
 
         for idx, (route, label) in enumerate(zip(routes, labels)):
@@ -116,10 +143,6 @@ class Visualizer:
             ax.set_aspect("equal")
             ax.grid(True, linestyle="--", alpha=0.6)
 
-        # Hide unused subplots
-        for ax in axes[len(routes):]:
-            ax.axis("off")
-
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
         plt.tight_layout()
@@ -128,7 +151,7 @@ class Visualizer:
 
     @staticmethod
     def plot_histories_grid(histories, labels, filename="histories_grid.png", output_dir="outputs"):
-        cols = 2
+        cols = 3
         rows = (len(histories) + 1) // cols
         fig, axes = plt.subplots(rows, cols, figsize=(12, 4 * rows))
         axes = axes.flatten()
@@ -139,9 +162,6 @@ class Visualizer:
             axes[idx].set_xlabel("Iteration")
             axes[idx].set_ylabel("Best Distance")
             axes[idx].grid(True)
-
-        for ax in axes[len(histories):]:
-            ax.axis("off")
 
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, filename)
@@ -155,20 +175,18 @@ class Configuration:
         self.name, self.iterations, self.tabu_size = name, iterations, tabu_size
 
 
-import csv
-
 class Experiment:
     @staticmethod
-    def run_experiment(configs, num_cities, width, height, output_dir="outputs"):
-        coords = TSPHelper.generate_cities(num_cities, width, height)
+    def run_experiment(configs, coords, matrix, output_dir="outputs"):
         histories, labels, best_routes = [], [], []
         summary_table = []
+        num_cities = len(coords)
 
         for cfg in configs:
             print(f"\nRunning: {cfg.name}")
-            solver = TabuSearch(coords, cfg.iterations, cfg.tabu_size)
+            solver = TabuSearch(coords, matrix, cfg.iterations, cfg.tabu_size)
             best_route, best_dist, history = solver.solve()
-            init_dist = TSPHelper.route_distance(list(range(num_cities)), solver.matrix)
+            init_dist = TSPHelper.route_distance(list(range(num_cities)), matrix)
             improvement = (init_dist - best_dist) / init_dist * 100
 
             print(f"Initial: {init_dist:.2f}, Final: {best_dist:.2f}, Improvement: {improvement:.2f}%")
@@ -208,25 +226,46 @@ class Experiment:
 
 class Utils:
     @staticmethod
-    def generate_configurations(iter_opt, tabu_ratio_opt):
+    def generate_configurations(iter_opt, tabu_ratio_opt, num_cities):
         configurations_list = []
         for i, (iters, ratio) in enumerate(itertools.product(iter_opt, tabu_ratio_opt), 1):
-            tabu_size = int(NUM_CITIES * ratio)
+            tabu_size = int(num_cities * ratio)
             name = f"Cfg{i}_it{iters}_tb{tabu_size}"
             configurations_list.append(Configuration(name=name, iterations=iters, tabu_size=tabu_size))
-
         return configurations_list
     
+    @staticmethod
+    def prepare_inputs(num_cities, width, height, inputs_dir="inputs"):
+        os.makedirs(inputs_dir, exist_ok=True)
+        cities_path = os.path.join(inputs_dir, "cities.csv")
+        matrix_path = os.path.join(inputs_dir, "matrix.csv")
+
+        if os.path.exists(cities_path):
+            cities = TSPHelper.load_cities(cities_path)
+            print("Loaded cities from file.")
+        else:
+            cities = TSPHelper.generate_cities(num_cities, width, height)
+            TSPHelper.save_cities(cities, cities_path)
+            print("Generated and saved cities.")
+
+        matrix = TSPHelper.distance_matrix(cities)
+        TSPHelper.save_matrix(matrix, matrix_path)
+        print("Generated and saved distance matrix.")
+
+        return cities, matrix
+
 
 if __name__ == "__main__":
     random.seed(42)
 
     ENABLE_LOGGING = False
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    INPUT_DIR = os.path.join(BASE_DIR, "inputs")
     OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
     OUTPUT_FILENAME = "tsp_log.txt"
 
     NUM_CITIES = 100
+    WIDTH, HEIGHT = 10000, 10000
 
     logger = OutputLogger(
         enabled=ENABLE_LOGGING,
@@ -235,11 +274,11 @@ if __name__ == "__main__":
     )
     logger.start()
 
-    iteration_options = [125,250]
+    iteration_options = [125, 250]
     tabu_ratio_options = [0.25, 0.5, 0.75]
-    
-    configurations = Utils.generate_configurations(iteration_options, tabu_ratio_options)
+    configurations = Utils.generate_configurations(iteration_options, tabu_ratio_options, NUM_CITIES)
+    cities, matrix = Utils.prepare_inputs(NUM_CITIES, WIDTH, HEIGHT, inputs_dir=INPUT_DIR)
 
-    Experiment.run_experiment(configurations, NUM_CITIES, 10000, 10000, output_dir=OUTPUT_DIR)
+    Experiment.run_experiment(configurations, cities, matrix, output_dir=OUTPUT_DIR)
 
     logger.stop()
